@@ -1,5 +1,5 @@
 <p align="center">
-  <img src="assets/map-fox-logo.png" alt="Map Fox" width="350">
+  <img src="assets/map-fox-logo-dark.png" alt="Map Fox" width="350">
 </p>
 
 # Map Fox
