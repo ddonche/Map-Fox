@@ -1,3 +1,7 @@
+<p align="center">
+  <img src="assets/map-fox-logo.png" alt="Map Fox" width="350">
+</p>
+
 # Map Fox
 
 **Map Fox** is a browser-based political map generator and editor for creating, importing, refining, and exporting maps and alternate political layouts.
