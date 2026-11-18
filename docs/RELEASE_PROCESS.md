@@ -5,10 +5,10 @@ Map Fox is under active development. Review [ROADMAP.md](../ROADMAP.md) before c
 ## Workflow
 
 1. Branch from `main` for changes; use feature branches/PRs where possible.
-2. Preserve the **current 0.7.2 version** until the owner explicitly approves the next version. Do not reset to 0.1.
+2. Preserve the **current 0.7.3 version** until the owner explicitly approves the next version. Do not reset to 0.1.
 3. Update `CHANGELOG.md` with changes, fixes, regressions and known issues.
 4. Run the core generator tests and browser smoke tests; specifically verify imported high-resolution Everwind maps, generated maps, painting, saving, reopening and PNG/Fext exports.
-5. Commit the complete app/source/docs to GitHub. Create a Git tag (for example `v0.7.2` once a publishable checkpoint is approved), and attach distributable standalone HTML and ZIP to a GitHub Release when available.
+5. Commit the complete app/source/docs to GitHub. Create a Git tag (for example `v0.7.3` once a publishable checkpoint is approved), and attach distributable standalone HTML and ZIP to a GitHub Release when available.
 6. Don't merge unverified UI rewrites that discard existing capabilities. Treat app version and project JSON schema version as distinct.
 
 ## Release checklist
@@ -25,4 +25,4 @@ Map Fox is under active development. Review [ROADMAP.md](../ROADMAP.md) before c
 
 ## Project identity
 
-Name: Map Fox. Version: 0.7.2. License: MIT. Logo: the owner's existing fox-and-star identity; no substituted artwork.
+Name: Map Fox. Version: 0.7.3. License: MIT. Logo: the owner's existing fox-and-star identity; no substituted artwork.

@@ -1,6 +1,15 @@
 # Changelog
 
-All notable changes to Map Fox will be recorded here. Version numbering is continuous with the former Map Spawner V7.2; **0.7.2 is the current development series**, not 0.1.
+All notable changes to Map Fox will be recorded here. Version numbering is continuous with the former Map Spawner V7.2; **0.7.3 is the current development series**, not 0.1.
+
+## [0.7.3] — 2026-11-18 (image-first foundation)
+
+- Added `src/master-map.mjs` with versioned `map-fox-document` project wrapper; native source-image bytes/dimensions and a compressed baseline of imported working ownership are retained alongside the editable grid.
+- Added `src/native-export.mjs` for original-resolution PNG output from imported maps. Unmodified source pixels remain intact, and working-grid territory edits are projected onto the native source while retaining untouched water channels.
+- Imported project save/reopen retains full source bytes; old schema-v6 JSON remains loadable.
+- Added master resolution to the UI and updated the Export action; source image pixels are no longer discarded when the importer must downsize its working grid.
+- Tests cover the document model and native-size browser export on Everwind (2048×1469) and a larger 5200×2600 synthetic political map with painted changes and save/reopen.
+- **Still planned:** detailed high-resolution procedural geography, native-resolution painting and tiled processing, rich political variations, arbitrary huge-canvas export, Fext round trip. Generated maps currently still use coarse-grid geometry.
 
 ## [0.7.2] — 2026-11-17 (development baseline)
 

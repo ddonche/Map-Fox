@@ -26,12 +26,14 @@ Generated native geography ------> Master map
 
 ### Master document
 
-Proposed conceptual structure (not yet implemented):
+The **first version** of the `map-fox-document` wrapper is implemented in 0.7.3 in `src/master-map.mjs`. It stores `master` source dimensions and image bytes for imports, source palette and RLE baseline of editable working ownership, plus the legacy `map` grid. `src/native-export.mjs` composites edit differences onto original source pixels for native-size PNG output. Generated maps use the same wrapper but still produce a coarse-grid master. The model below remains a **longer-term target**, not the current serialized schema.
+
+Proposed longer-term structure:
 
 ```json
 {
   "documentVersion": 7,
-  "appVersion": "0.7.2",
+  "appVersion": "0.7.3",
   "source": {
     "kind": "imported | generated",
     "nativeWidth": 0,
@@ -70,7 +72,7 @@ Proposed conceptual structure (not yet implemented):
 - Render dimensions: requested output PNG pixels.
 - Fext dimensions: explicit optional reduction; preserve land/water perimeter as faithfully as possible at selected grid size.
 
-The current 0.7.2 import 5,000,000-cell cap is a **legacy implementation limitation**, not an acceptable master-map limit.
+The 0.7.3 importer retains native source bytes, while the **editor working grid** is still capped at 5,000,000 cells. That working cap is a performance limitation, not a master-map limit. True native-resolution painting / tiling and full-quality procedural generation are later milestones.
 
 ## Native generation and variations
 

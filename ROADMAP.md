@@ -1,7 +1,7 @@
 # Map Fox Roadmap
 
 > **Project continuity document — 17 November 2026**  
-> **Current application version: 0.7.2 (development / pre-MVP).**  
+> **Current application version: 0.7.3 (development / pre-MVP).**  
 > This document preserves decisions made during the initial Map Fox work and should be read before modifying the application in a new conversation or coding session.
 
 ## Product vision
@@ -26,7 +26,7 @@ Map Fox is a **standalone, browser-based political map generator and editor**—
 
 ## Current baseline: 0.7.2 (what exists)
 
-The checked-in `index.html` is the **latest working 0.7.2 baseline**, prior to the planned image-first rewrite. It contains:
+The checked-in `index.html` is the **working 0.7.3 application** with modular source under `src/`. The original 0.7.2 baseline is superseded. It contains:
 - Standalone browser app, four-action workspace, light ivory/fox-orange color scheme, user-supplied fox logo;
 - Seeded procedural generation and political regions; political seeds, island policies, provinces/subdivisions;
 - Image import including clean flat-color recognition, black-water preservation and a size-bound fix;
@@ -34,10 +34,17 @@ The checked-in `index.html` is the **latest working 0.7.2 baseline**, prior to t
 - Goblin-derived smoothed display and PNG rendering; editable JSON save/reopen;
 - Reduced simulation-grid preview/export for Fext.
 
+**0.7.3 completed in the first image-first foundation pass:**
+- Imported PNG/JPEG/WebP source bytes, original dimensions, source background color and a baseline of the working grid are preserved in the versioned `map-fox-document` JSON wrapper.
+- Native-size imported PNG export uses unchanged original pixels where possible; painted working-grid differences are projected onto the native source while retaining original water pixels unless geography is explicitly edited.
+- Project save/reopen retains the native source and editable grid. Existing version-6 grid JSON remains readable.
+- Both import and procedural generation now have master-document metadata, but the generated master is still a coarse grid and native-quality procedural geography remains a subsequent milestone.
+- Tested: 2048×1469 Everwind exact-source round trip; 5200×2600 synthetic source uses a smaller working grid yet exports at original size, including a painted region edit after save/reopen.
+
 **Important limitations—not solved yet**:
-- Import still may be resized to a **5,000,000-cell** limit and a maximum import width; image-first master storage and non-destructive, high-resolution editing are not implemented.
-- Generated geometry is primarily based on a coarse discrete grid; high-fidelity master geography needs redesign.
-- Full-quality native-resolution export after importing a larger image is not guaranteed.
+- The **working grid**, not the preserved source image, is still resized to a **5,000,000-cell** limit. Painting is applied at working-grid resolution and projected onto full-resolution export; this is not yet native-resolution brush editing or a fully tiled editor.
+- Generated geometry is primarily based on a coarse discrete grid; high-fidelity generated master geography needs redesign.
+- Native-resolution export now works on tested imports; very large canvases are limited by browser canvas/memory ceilings. A tile-based exporter is still needed for arbitrary source sizes.
 - Political variation workflow and non-destructive layers are incomplete.
 - Edit history currently covers painting/fill but not every command.
 - Fext round-trip restoration against an original high-resolution coastline is **future** work.
@@ -45,7 +52,7 @@ The checked-in `index.html` is the **latest working 0.7.2 baseline**, prior to t
 
 ## Roadmap: ordered milestones
 
-### M1 — Master-map data model (highest priority)
+### M1 — Master-map data model (partially implemented in 0.7.3)
 - Introduce versioned **MapDocument**, separating `source`, `geography`, `politics`, `editor`, `render`, and `exports`.
 - Retain original imported bytes or lossless image and exact native dimensions in the project; capture original land/water silhouette and native territory colors/IDs.
 - Define **the same** master document for procedural generation. Generate native-quality geography and land mask, with optional preview/working tiles.
@@ -92,6 +99,13 @@ The checked-in `index.html` is the **latest working 0.7.2 baseline**, prior to t
 - Never claim Fext can recover detail that was discarded; Map Fox reuses the original master mask it retained.
 
 **Acceptance:** Simulate on a reduced grid, ingest a later Fext snapshot, and export a full-res political picture with the original coastline intact.
+
+## Version 0.7.3 compatibility notes
+
+- New project saves use `format: 'map-fox-document'`, `documentVersion: 1`, with nested `map` retaining existing `version: 6` grid schema.
+- Opening old v6 grid JSON works; no original source pixels can be recovered from historical saves.
+- Imported project JSON embeds the full source file as a data URL and is substantially larger; eventually replace this with a packed/binary project container.
+- Reimport a clean/assisted image to adjust import settings after reopening; full resolution retained for export but the original editable importer raw buffer is not restored yet.
 
 ## Test fixtures & regression requirements
 
