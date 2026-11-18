@@ -18,8 +18,8 @@ jobs:
       - name: Build standalone HTML
         run: npm run build
       - name: Check the built file exists
-        run: test -s dist/Map_Fox_0.7.2_Standalone.html
+        run: test -s dist/Map_Fox_0.7.3_Standalone.html
       - uses: actions/upload-artifact@v4
         with:
-          name: Map_Fox_0.7.2_Standalone
-          path: dist/Map_Fox_0.7.2_Standalone.html
+          name: Map_Fox_0.7.3_Standalone
+          path: dist/Map_Fox_0.7.3_Standalone.html
