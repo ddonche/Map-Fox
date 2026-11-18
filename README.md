@@ -6,13 +6,13 @@
 
 **Map Fox** is a browser-based political map generator and editor for creating, importing, refining, and exporting maps and alternate political layouts.
 
-**Current development version: 0.7.2** · **License: MIT** · **Status: pre-MVP**
+**Current development version: 0.7.3** · **License: MIT** · **Status: pre-MVP**
 
 ## Try the app
 
 **[Open Map Fox in your browser](https://ddonche.github.io/Map-Fox/)** *(GitHub Pages must first be enabled for this repository; until then, download and open [index.html](index.html) directly.)*
 
-Map Fox currently runs as one standalone HTML file, without a backend. To run it locally, download `index.html` and open it in your browser.
+The repository contains the maintainable source modules in `src/`, a stylesheet in `styles/`, and the `assets/` directory. Because `index.html` imports ES modules, run it through a static server (for example `python -m http.server 8000`, then visit `http://localhost:8000`) or enable GitHub Pages. For an offline single-file download, run `npm run build` and open `dist/Map_Fox_0.7.3_Standalone.html`. No backend is needed.
 
 ## Main actions
 
@@ -25,7 +25,7 @@ Map Fox currently runs as one standalone HTML file, without a backend. To run it
 
 **Map Fox is image-first.** Imported maps must retain their full native-resolution geographic source, and **generated maps must also create high-quality master geography**. Preview/editing resolution and optional simulation-grid resolution are derived outputs and must not degrade the master map. Geography and political regions are separate, so users can generate political variations while keeping coastlines fixed.
 
-This is the design target, **not all implemented yet**: version 0.7.2 still contains coarse-grid generation and a legacy maximum of 5 million working/import cells. The roadmap spells out the implementation steps and acceptance tests.
+This is the design target, **not all implemented yet**: version 0.7.3 still contains coarse-grid generation and a legacy maximum of 5 million working/import cells. The roadmap spells out the implementation steps and acceptance tests.
 
 **Start here for future work:**
 
@@ -40,7 +40,8 @@ The current UI uses the owner's original fox logo and light ivory/fox-orange the
 
 ## Technical notes
 
-- Generated and imported maps share the existing mutable grid model; editable JSON uses legacy `version: 6` independent of the app's `0.7.2` version.
+- Editable Map Fox project JSON now uses a `map-fox-document` wrapper with the native source image (for imported maps) and a nested backwards-compatible grid `version: 6`. Old version-6 project files still reopen, but cannot restore source pixels that were never saved.
 - Preview smoothing is based on Goblin's `write_png!` implementation: [Goblin image renderer](https://github.com/ddonche/goblin-lang/blob/jareth/crates/goblin-vm/src/image.rs).
+- New maps saved in 0.7.3 include an embedded source image, which makes project JSON files considerably larger. Native-resolution export presently uses the original pixels and overlays working-grid edits; a fully resolution-independent editor is still planned.
 - The optional Fext export should preserve the outside land/water silhouette as faithfully as its chosen reduced grid permits; internal political ownership may be simplified. Future Fext-returned maps can be rendered on the saved full-resolution coastline.
 - The project is licensed under the [MIT License](LICENSE).
