@@ -71,7 +71,7 @@ export function loadProjectDocument(data) {
     const map=deserializeMap(data);
     return {map,master:{...generatedMaster(map),kind:'legacy-grid'}};
   }
-  if(data.documentVersion!==DOCUMENT_VERSION)throw new Error(\`Unsupported Map Fox document version: \${data.documentVersion}\`);
+  if(data.documentVersion!==DOCUMENT_VERSION)throw new Error(`Unsupported Map Fox document version: ${data.documentVersion}`);
   const map=deserializeMap(data.map),master=data.master;
   if(!master||!['generated','imported','legacy-grid'].includes(master.kind))throw new Error('Invalid master map type');
   if(!Number.isInteger(master.nativeWidth)||!Number.isInteger(master.nativeHeight)||master.nativeWidth<1||master.nativeHeight<1)throw new Error('Invalid master size');
