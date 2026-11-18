@@ -2,9 +2,12 @@ import { spawnMap, serializeMap, deserializeMap, validateMapGrid, regeneratePoli
 import { importPixels, sampleColor, floodReassign, brushAssign, fixStrayLandCells, restoreTinyIslands } from './importer.mjs';
 import { subdivideMap } from './subdivisions.mjs';
 import { goblinSmoothFrame } from './renderer.mjs';
+import {generatedMaster,importedMaster,saveProjectDocument,loadProjectDocument} from './master-map.mjs';
+import {renderNativeImportedPNG,downloadCanvasPNG} from './native-export.mjs';
 // BEGIN APP UI
 const $=id=>document.getElementById(id);
 let current=null,originalPolitical=null,raw=null,rawWidth=0,rawHeight=0,bg=null,sourceMode='generate',penDown=false,lastPaint=-1;
+let master=null,pendingNativeSource=null;
 const rgb=hex=>[1,3,5].map(i=>parseInt(hex.slice(i,i+2),16));
 const pixelRgb=(data,k)=>[data[k],data[k+1],data[k+2]];
 const format=(x)=>Number(x).toLocaleString();
@@ -68,8 +71,8 @@ $('jsonFile').addEventListener('change',async event=>{
   const file=event.target.files?.[0];if(!file)return;
   try{
     const parsed=JSON.parse(await file.text());
-    const next=deserializeMap(parsed);const summary=validateMapGrid(next);
-    current=next;clearPaintHistory();raw=null;rawWidth=0;rawHeight=0;bg=null;resetOriginal();prepare('json');updateAll();window.mapFoxFit?.();
+    const loaded=loadProjectDocument(parsed),next=loaded.map;const summary=validateMapGrid(next);
+    current=next;master=loaded.master;pendingNativeSource=null;clearPaintHistory();raw=null;rawWidth=0;rawHeight=0;bg=null;resetOriginal();prepare('json');updateAll();window.mapFoxFit?.();
     message(`Loaded ${file.name}: ${summary.width} × ${summary.height}, ${format(summary.land)} usable cells, ${summary.regions} occupied regions. Continue editing or exporting.`);
   }catch(e){console.error(e);message(`Could not open JSON: ${e.message}`,true);}
   finally{event.target.value='';}
@@ -78,7 +81,7 @@ function makeGenerated(){
   try{
     const start=performance.now();let land=$('land').value.trim();
     clearPaintHistory();current=spawnMap({seed:$('seed').value,style:$('style').value,width:Number($('width').value),height:Number($('height').value),regionCount:Number($('regions').value),independentIslandRegions:$('islandRegions').value.trim()?Number($('islandRegions').value):'auto',unclaimedIslandRate:Number($('unclaimedChance').value)/100,landRatio:land?Number(land)/100:null});
-    current.source={type:'generated'};current.subdivisions=null;resetOriginal();
+    current.source={type:'generated'};current.subdivisions=null;master=generatedMaster(current);pendingNativeSource=null;resetOriginal();
     updateAll();window.mapFoxFit?.();message(`Generated ${current.width} × ${current.height} in ${Math.round(performance.now()-start)} ms.`);
   }catch(e){console.error(e);message(`Generation error: ${e.message}`,true);}
 }
@@ -167,6 +170,7 @@ function paint(){
 function refreshInfo(){if(!current)return;const m=current,assigned=new Set();let land=0,empty=0;
   for(let i=0;i<m.valid.length;i++){if(m.valid[i]){land++;if(m.layers.regions[i]<0)empty++;else assigned.add(m.layers.regions[i]);}}
   $('infoStyle').textContent=m.style.replaceAll('-',' ');$('infoSize').textContent=`${m.width} × ${m.height}`;
+  $('infoMaster').textContent=`${master?.nativeWidth??m.width} × ${master?.nativeHeight??m.height}`+ (master?.kind==='imported'?' · original saved':master?.kind==='generated'?' · generated grid':' · legacy project');
   $('infoLand').textContent=`${format(land)} (${(100*land/m.valid.length).toFixed(1)}%)`;
   $('infoRegions').textContent=assigned.size;$('infoEmpty').textContent=format(empty);
   $('infoSub').textContent=m.subdivisions?.palette.length||0;
@@ -460,6 +464,8 @@ async function openFile(file){
    const url=URL.createObjectURL(file);
    try{
      const image=await createImageBitmap(file);
+     const imageDataUrl=await new Promise((resolve,reject)=>{const r=new FileReader();r.onload=()=>resolve(r.result);r.onerror=()=>reject(new Error('Could not read original image'));r.readAsDataURL(file);});
+     pendingNativeSource={imageDataUrl,nativeWidth:image.width,nativeHeight:image.height,filename:file.name};
      const maxWidth=Number($('importMaxWidth').value)||4096;
      const fitted=fitImportDimensions(image.width,image.height,maxWidth);
      rawWidth=fitted.width;rawHeight=fitted.height;
@@ -484,14 +490,27 @@ function runImport(){
  try{
    const start=performance.now();
    clearPaintHistory();current=importPixels({rgba:raw,width:rawWidth,height:rawHeight,background:bg,waterTolerance:Number($('waterTolerance').value),regionLimit:Number($('colorLimit').value),cleanup:Number($('cleanup').value),mode:$('mode').value});
-   current.subdivisions=null;resetOriginal();updateAll();window.mapFoxFit?.();
+   current.subdivisions=null;master=pendingNativeSource?importedMaster(current,{...pendingNativeSource,background:bg,importMode:current.source.importMode}):generatedMaster(current);resetOriginal();updateAll();window.mapFoxFit?.();
    message(`Imported ${current.width} × ${current.height}; ${current.palette.length} detected region colors (${current.source.importMode} mode) in ${Math.round(performance.now()-start)} ms. Review boundaries; use Fill, Brush, or the repair buttons for any remaining mistakes.`);
  }catch(e){console.error(e);message(`Import error: ${e.message}`,true);}
 }
 $('runImport').onclick=runImport;
 function save(blob,name){const url=URL.createObjectURL(blob),a=document.createElement('a');a.href=url;a.download=name;document.body.append(a);a.click();a.remove();setTimeout(()=>URL.revokeObjectURL(url),3000);}
-$('png').onclick=()=>{if(!current)return;const type=$('view').value;$('map').toBlob(blob=>{if(blob)save(blob,`map-fox-${type}.png`);});};
-$('json').onclick=()=>{if(!current)return;try{validateMapGrid(current);save(new Blob([JSON.stringify(serializeMap(current))],{type:'application/json'}),'map-fox-project.json');message('Project JSON saved. Open it using the JSON tab to resume editing.');}catch(e){message(`Could not save project: ${e.message}`,true);}};
+$('png').onclick=async()=>{
+ if(!current)return;const type=$('view').value,button=$('png');button.disabled=true;
+ try{
+   if(master?.kind==='imported'){
+     message(`Rendering ${master.nativeWidth} × ${master.nativeHeight} PNG from original master image…`);
+     const image=await renderNativeImportedPNG(current,master);
+     const blob=await downloadCanvasPNG(image);save(blob,`map-fox-native-${type}.png`);
+     message(`Exported original-size ${master.nativeWidth} × ${master.nativeHeight} PNG. Original coastline preserved unless you painted geography edits.`);
+   }else{
+     const blob=await downloadCanvasPNG($('map'));save(blob,`map-fox-${type}.png`);
+     message('Exported generated map PNG. Native-quality procedural geography is a later roadmap milestone.');
+   }
+ }catch(e){console.error(e);message(`PNG export error: ${e.message}`,true);}finally{button.disabled=false;}
+};
+$('json').onclick=()=>{if(!current)return;try{validateMapGrid(current);save(new Blob([JSON.stringify(saveProjectDocument(current,master))],{type:'application/json'}),'map-fox-project.json');message('Map Fox project saved, including the original native image for imports. Reopen using Open project.');}catch(e){message(`Could not save project: ${e.message}`,true);}};
 $('verify').onclick=()=>{
   try{
     const status=validateMapGrid(current);

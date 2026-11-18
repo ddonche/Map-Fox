@@ -1,11 +1,11 @@
 {
   "name": "map-fox",
-  "version": "0.7.2",
+  "version": "0.7.3",
   "private": true,
   "type": "module",
   "description": "Map Fox political map generator and editor",
   "scripts": {
-    "test": "node tests/core.test.mjs",
+    "test": "node tests/core.test.mjs && node tests/master-map.test.mjs",
     "build": "python scripts/build-standalone.py"
   }
 }
