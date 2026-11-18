@@ -83,3 +83,6 @@ body{background:var(--bg);font-family:system-ui,-apple-system,Segoe UI,Arial,san
 .map-frame .canvaswrap canvas{image-rendering:auto}
 @media(max-width:950px){.brand-logo{width:156px;height:68px}.app-header{min-height:78px}.action-rail{top:78px;height:calc(100dvh - 78px)}}
 @media(max-width:750px){.app-header{min-height:0}.brand-logo{width:134px;height:62px}.action-rail{position:static;height:auto}}
+
+/* Native original-image viewport; no downsampling on zoom. */
+.map-frame #nativeViewport{position:absolute;inset:0;display:none;width:100%;height:100%;z-index:2;pointer-events:none;image-rendering:auto}

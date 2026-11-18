@@ -4,6 +4,9 @@ All notable changes to Map Fox will be recorded here. Version numbering is conti
 
 ## [0.7.3] — 2026-11-18 (image-first foundation)
 
+- **Native-quality viewport correction:** Imported political maps now display the full-resolution original image when viewing political regions, even when the editable working grid is smaller. Zoom/pan samples native-source pixels rather than magnifying the working cells; painted territory/geometry changes are overlaid on the original, and Undo remains functional. Other grid display layers retain their existing rendering.
+- Verified in-browser on Everwind and a 9201 × 6600 test image. Native-resolution source preservation was already present in project JSON/PNG export but previously missing from the editor display.
+
 - Added `src/master-map.mjs` with versioned `map-fox-document` project wrapper; native source-image bytes/dimensions and a compressed baseline of imported working ownership are retained alongside the editable grid.
 - Added `src/native-export.mjs` for original-resolution PNG output from imported maps. Unmodified source pixels remain intact, and working-grid territory edits are projected onto the native source while retaining untouched water channels.
 - Imported project save/reopen retains full source bytes; old schema-v6 JSON remains loadable.

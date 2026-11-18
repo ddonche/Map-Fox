@@ -4,10 +4,12 @@ import { subdivideMap } from './subdivisions.mjs';
 import { goblinSmoothFrame } from './renderer.mjs';
 import {generatedMaster,importedMaster,saveProjectDocument,loadProjectDocument} from './master-map.mjs';
 import {renderNativeImportedPNG,downloadCanvasPNG} from './native-export.mjs';
+import {createNativePreview} from './native-preview.mjs';
 // BEGIN APP UI
 const $=id=>document.getElementById(id);
 let current=null,originalPolitical=null,raw=null,rawWidth=0,rawHeight=0,bg=null,sourceMode='generate',penDown=false,lastPaint=-1;
 let master=null,pendingNativeSource=null;
+let nativePreview=null;
 const rgb=hex=>[1,3,5].map(i=>parseInt(hex.slice(i,i+2),16));
 const pixelRgb=(data,k)=>[data[k],data[k+1],data[k+2]];
 const format=(x)=>Number(x).toLocaleString();
@@ -131,6 +133,9 @@ function paint(){
   if($('simPreviewBox'))$('simPreviewBox').classList.add('hidden');
   if($('simResult'))$('simResult').textContent='';
   if(!current)return;const m=current,canvas=$('map'),view=$('view').value;
+  // Display imported original-resolution image in the viewport, not the working grid.
+  nativePreview?.markDataChanged();
+  if(nativePreview?.sync(view))return;
   // First produce the exact original grid image. The Goblin renderer draws
   // a higher-resolution picture from these pixels; it never rewrites cells.
   const baseCanvas=document.createElement('canvas');
@@ -277,6 +282,7 @@ $('buildSubs').onclick=()=>{
    }
  }
  const mapCanvas=$('map'), mapFrame=$('mapFrame');
+ nativePreview=createNativePreview({mapCanvas,mapFrame,viewport:$('nativeViewport'),getMap:()=>current,getMaster:()=>master,getView:()=>$('view').value});
  let mapZoom=1,mapOffsetX=0,mapOffsetY=0,spaceHeld=false;
  let panDrag=null,paintPointer=null,lastPoint=null;
  function boundMapOffset(){
@@ -289,6 +295,7 @@ $('buildSubs').onclick=()=>{
    boundMapOffset();
    mapCanvas.style.transform=`translate(${mapOffsetX}px, ${mapOffsetY}px) scale(${mapZoom})`;
    $('zoomLevel').textContent=`${Math.round(mapZoom*100)}%`;
+   nativePreview?.invalidate();
    updateBrushOutline();
  }
  function zoomAt(factor,clientX,clientY){
