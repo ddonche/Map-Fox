@@ -86,7 +86,7 @@ export async function renderNativePoliticalPNG(master,native,palette,{onProgress
       if(signal?.aborted)throw new Error('Native PNG export cancelled');
       const rows=Math.min(96,native.height-y0);
       const part=ctx.getImageData(0,y0,native.width,rows);
-      compositeNativePixels(part.data,native.width,rows,native,palette,{originX:0,originY:y0});
+      compositeNativePixels(part.data,native.width,rows,native,palette,{originX:0,originY:y0,sourcePalette:master.baselinePalette,waterColor:master.background||[0,0,0]});
       ctx.putImageData(part,0,y0);
       onProgress?.(Math.round(100*(y0+rows)/native.height));
       if(y0%768===0)await new Promise(resolve=>setTimeout(resolve,0));
