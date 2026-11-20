@@ -30,6 +30,7 @@ This is the design target, **not all implemented yet**: version 0.7.3 still cont
 **Start here for future work:**
 
 - **[ROADMAP.md](ROADMAP.md)** — product decisions, milestone priorities, acceptance criteria and conversation continuity
+- **[0.7.4 Native Politics Implementation](docs/IMPLEMENTATION_0.7.4.md)** — next coding milestone: native-resolution ownership, exact water mask, regeneration, editing and tests (**planned, not implemented**)
 - **[Architecture](docs/ARCHITECTURE.md)** — source/master/editor/render/Fext separation
 - **[Changelog](CHANGELOG.md)** — implemented version history and current limitations
 - **[Release process](docs/RELEASE_PROCESS.md)** — how to publish subsequent versions
