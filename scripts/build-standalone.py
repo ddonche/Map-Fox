@@ -7,7 +7,7 @@ import re
 ROOT = Path(__file__).resolve().parents[1]
 HTML = (ROOT / 'index.html').read_text(encoding='utf-8')
 CSS = (ROOT / 'styles' / 'app.css').read_text(encoding='utf-8')
-MODULES = ('renderer.mjs', 'spawner.mjs', 'importer.mjs', 'subdivisions.mjs', 'master-map.mjs', 'native-export.mjs', 'native-preview.mjs', 'app.mjs', 'navigation.mjs')
+MODULES = ('renderer.mjs', 'spawner.mjs', 'importer.mjs', 'subdivisions.mjs', 'native-map.mjs', 'master-map.mjs', 'native-export.mjs', 'native-preview.mjs', 'app.mjs', 'navigation.mjs')
 
 
 def bundle_module(source):

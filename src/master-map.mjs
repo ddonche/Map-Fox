@@ -3,6 +3,7 @@
  * is an independent derivative and NEVER replaces that source.
  */
 import {serializeMap, deserializeMap} from './spawner.mjs';
+import {NativeMap} from './native-map.mjs';
 
 export const DOCUMENT_FORMAT = 'map-fox-document';
 export const DOCUMENT_VERSION = 1;
@@ -81,4 +82,37 @@ export function loadProjectDocument(data) {
     decodeBaseline(master.baselineRuns,map.width,map.height);
   }
   return {map,master};
+}
+
+/**
+ * Stage A 0.7.4 project codec, intentionally separate from the live v1 editor.
+ * Call saveNativeProjectDocument only once native preview/edit/export all use it.
+ * Existing loadProjectDocument keeps accepting v1 and grid-v6 documents.
+ */
+export const NATIVE_DOCUMENT_VERSION = 2;
+export function saveNativeProjectDocument(map, master, native) {
+  if (!(native instanceof NativeMap)) throw new Error('Native political map is required');
+  if (!master || native.width !== master.nativeWidth || native.height !== master.nativeHeight)
+    throw new Error('Native political resolution differs from master geography');
+  if (master.workingWidth !== map.width || master.workingHeight !== map.height)
+    throw new Error('Working map and master dimensions do not match');
+  return {
+    format:DOCUMENT_FORMAT,documentVersion:NATIVE_DOCUMENT_VERSION,appVersion:'0.7.4-stage-a',
+    master, map:serializeMap(map), native:native.serialize()
+  };
+}
+export function loadNativeProjectDocument(data) {
+  if (data?.format===DOCUMENT_FORMAT && data.documentVersion===NATIVE_DOCUMENT_VERSION) {
+    // Validate the same source/working invariants as existing 0.7.3 projects,
+    // then validate every native mask/owner tile before exposing the document.
+    const legacyFields=loadProjectDocument({...data,documentVersion:DOCUMENT_VERSION});
+    const native=NativeMap.deserialize(data.native);
+    if (native.width!==legacyFields.master.nativeWidth || native.height!==legacyFields.master.nativeHeight)
+      throw new Error('Native tile dimensions do not match master source');
+    return {...legacyFields,native,requiresNativeMigration:false};
+  }
+  const legacy=loadProjectDocument(data);
+  // Deliberately DO NOT upscale a 0.7.3 grid and call it native ownership.
+  // Stage B will explicitly reconstruct from imported source with preview.
+  return {...legacy,native:null,requiresNativeMigration:true};
 }
