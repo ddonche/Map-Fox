@@ -111,4 +111,28 @@ function src(w,h){
  assert.deepEqual([...rgba.slice(idx,idx+3)],[239,171,33],'Solid dark original region leaked through');
 }
 
+
+{
+ // Regression: a very thin black line can be entirely anti-aliased, without
+ // a single exact-black pixel. Do not erase it just because every source
+ // pixel was classified as land by the binary water mask.
+ const n=new NativeMap(16,16,{tileSize:16,regionIds:[42]});
+ const original=[191,40,65],fresh=[20,200,60];
+ const rgba=new Uint8ClampedArray(16*16*4);
+ for(let y=0;y<16;y++)for(let x=0;x<16;x++){
+   n.setLand(x,y,true);n.setRegion(x,y,42);
+   const k=(y*16+x)*4,alpha=(x===8 && y>=3 && y<=12)?.2:1;
+   for(let channel=0;channel<3;channel++)rgba[k+channel]=Math.round(original[channel]*alpha);
+   rgba[k+3]=255;
+ }
+ compositeNativePixels(rgba,16,16,n,[{id:42,color:'#14c83c'}],{
+   sourcePalette:[{id:9,color:'#bf2841'}],waterColor:[0,0,0]
+ });
+ const get=(x,y)=>[...rgba.slice((y*16+x)*4,(y*16+x)*4+3)];
+ assert.deepEqual(get(6,8),fresh,'Interior recolor failed');
+ for(let channel=0;channel<3;channel++)
+   assert(Math.abs(get(8,8)[channel]-fresh[channel]*.2)<=2,
+     'Anti-aliased line with no pure-black core was erased');
+}
+
 console.log('PASS native composite: source water untouched, all native ownership recolored, viewport/export parity');
