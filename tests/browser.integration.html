@@ -71,8 +71,19 @@
    await until(()=>d.getElementById('message')?.textContent?.includes('Loaded saved-native-project.json'),'native reopening');
    await until(()=>d.getElementById('nativeViewport').style.display==='block','reopened native preview');
    check(Number(d.getElementById('infoRegions').textContent)===regions,'Native region identities not restored');
+   const reopenedPNGStart=blobs.length;
+   d.getElementById('png').click();
+   await until(()=>blobs.slice(reopenedPNGStart).some(b=>b.type==='image/png'),'reopened native PNG');
+   const reopenedImage=await createImageBitmap(blobs.slice(reopenedPNGStart).find(b=>b.type==='image/png'));
+   check(reopenedImage.width===512&&reopenedImage.height===320,'Reopened PNG changed source dimensions');
+   const reopenCanvas=document.createElement('canvas');reopenCanvas.width=512;reopenCanvas.height=320;
+   const reopenCtx=reopenCanvas.getContext('2d');reopenCtx.drawImage(reopenedImage,0,0);
+   for(const [x,y] of [[0,0],[100,100],[160,100],[300,100]]){
+     const a=[...c.getImageData(x,y,1,1).data],b=[...reopenCtx.getImageData(x,y,1,1).data];
+     check(a.every((v,i)=>v===b[i]),'Reopened native PNG pixel changed at '+x+','+y);
+   }
    check(!errors.length,'Browser errors: '+errors.join(','));
-   result.textContent='PASS native import, regenerate, preview, black water, PNG, v2 project save/reopen';
+   result.textContent='PASS native import, regenerate, preview, black water, PNG, v2 project save/reopen/export parity';
  }catch(e){
    result.textContent='FAIL '+e.message;
    console.error(e);
