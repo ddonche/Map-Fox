@@ -206,8 +206,11 @@ export class NativeMap {
     this._regionIndex=new Map(this.regionIds.map((id,i)=>[id,i]));
     for(const [key,t] of this.tiles) {
       const source=other.tiles.get(key);
-      if(!source)throw new Error('Native political owner tile missing');
-      t.owners.set(source.owners);
+      // Equivalent all-water tiles may be allocated in only one representation.
+      // In that case the other map has no owners here, and the mask is already
+      // verified identical by geometryEquals().
+      if (source) t.owners.set(source.owners);
+      else t.owners.fill(UNCLAIMED);
     }
   }
   serialize() {
