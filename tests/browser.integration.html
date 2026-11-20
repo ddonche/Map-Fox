@@ -1,0 +1,80 @@
+<!doctype html><html lang="en"><head><meta charset="utf-8"><title>Map Fox Phase C integration test</title></head>
+<body><pre id="result">RUNNING</pre><iframe id="app" src="../index.html" style="width:1500px;height:1000px"></iframe>
+<script>
+(async()=>{
+ const result=document.getElementById('result'),frame=document.getElementById('app');
+ function check(ok,message){if(!ok)throw new Error(message);}
+ const pause=ms=>new Promise(done=>setTimeout(done,ms));
+ async function until(predicate,message,timeout=45000){
+   const started=Date.now();
+   while(Date.now()-started<timeout){if(predicate())return;await pause(50);}
+   throw new Error('Timed out: '+message+(frame.contentDocument?.getElementById('message')?.textContent||''));
+ }
+ try{
+   await until(()=>frame.contentDocument?.getElementById('generate')?.onclick,'app initialization');
+   const d=frame.contentDocument,w=frame.contentWindow;
+   const errors=[];
+   w.addEventListener('error',e=>errors.push(e.message));
+   w.addEventListener('unhandledrejection',e=>errors.push(String(e.reason)));
+   const blobs=[];
+   const oldCreate=w.URL.createObjectURL.bind(w.URL);
+   w.URL.createObjectURL=blob=>{blobs.push(blob);return oldCreate(blob);};
+   // Flat-color native fixture: pure black is water, including one-pixel
+   // waterways that must survive native political regeneration.
+   const fixture=document.createElement('canvas');
+   fixture.width=512;fixture.height=320;
+   const ctx=fixture.getContext('2d');
+   ctx.fillStyle='#000000';ctx.fillRect(0,0,512,320);
+   ctx.fillStyle='#c97955';ctx.fillRect(28,26,213,265);
+   ctx.fillStyle='#579ac2';ctx.fillRect(275,33,198,247);
+   ctx.fillStyle='#000000';ctx.fillRect(160,60,1,220);
+   const source=await new Promise(resolve=>fixture.toBlob(resolve,'image/png'));
+   check(source?.size>100,'Cannot create fixture PNG');
+   const fileInput=d.getElementById('file');
+   Object.defineProperty(fileInput,'files',{configurable:true,value:[new File([source],'native-ci.png',{type:'image/png'})]});
+   fileInput.dispatchEvent(new w.Event('change',{bubbles:true}));
+   await until(()=>d.getElementById('message')?.textContent?.startsWith('Imported '),'import');
+   const info=d.getElementById('infoMaster').textContent;
+   check(info.includes('512 × 320'),'Native source dimensions lost: '+info);
+   d.getElementById('regenCount').value='7';
+   d.getElementById('regenSeed').value='phase-c-browser-check';
+   d.getElementById('regenerate').click();
+   await until(()=>d.getElementById('message')?.textContent?.includes('Native political variation:'),'native reroll');
+   await until(()=>d.getElementById('nativeViewport').style.display==='block'&&d.getElementById('map').style.opacity==='0','native preview');
+   check(!errors.length,'Unexpected browser errors: '+errors.join(','));
+   const regions=Number(d.getElementById('infoRegions').textContent);
+   check(regions>1,'Regenerated only '+regions+' regions');
+   d.getElementById('png').click();
+   await until(()=>blobs.some(b=>b.type==='image/png'&&b!==source),'native PNG export');
+   const exported=blobs.filter(b=>b.type==='image/png'&&b!==source).at(-1);
+   const bmp=await createImageBitmap(exported);
+   check(bmp.width===512&&bmp.height===320,'PNG uses working-grid dimensions');
+   const output=document.createElement('canvas');output.width=512;output.height=320;
+   const c=output.getContext('2d');c.drawImage(bmp,0,0);
+   const colorAt=(x,y)=>[...c.getImageData(x,y,1,1).data].slice(0,3);
+   check(colorAt(0,0).every(v=>v===0),'Source water changed');
+   check(colorAt(160,100).every(v=>v===0),'One-pixel water channel changed');
+   check(colorAt(100,100).join(',')!=='201,121,85','Old political colors leaked into regenerated land');
+   check(colorAt(100,100).join(',')!=='0,0,0','Land became water');
+   const prior=blobs.length;
+   d.getElementById('json').click();
+   await until(()=>blobs.length>prior&&blobs.some(b=>b.type==='application/json'),'v2 save');
+   const saved=blobs.filter(b=>b.type==='application/json').at(-1);
+   const data=JSON.parse(await saved.text());
+   check(data.documentVersion===2,'Saved wrong document version');
+   check(data.native?.width===512&&data.native?.height===320,'Missing native owner tiles');
+   check(data.politics?.palette?.length>1,'Missing native political palette');
+   const inJson=d.getElementById('jsonFile');
+   Object.defineProperty(inJson,'files',{configurable:true,value:[new File([saved],'saved-native-project.json',{type:'application/json'})]});
+   inJson.dispatchEvent(new w.Event('change',{bubbles:true}));
+   await until(()=>d.getElementById('message')?.textContent?.includes('Loaded saved-native-project.json'),'native reopening');
+   await until(()=>d.getElementById('nativeViewport').style.display==='block','reopened native preview');
+   check(Number(d.getElementById('infoRegions').textContent)===regions,'Native region identities not restored');
+   check(!errors.length,'Browser errors: '+errors.join(','));
+   result.textContent='PASS native import, regenerate, preview, black water, PNG, v2 project save/reopen';
+ }catch(e){
+   result.textContent='FAIL '+e.message;
+   console.error(e);
+ }
+})();
+</script></body></html>
