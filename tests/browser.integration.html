@@ -28,6 +28,10 @@
    ctx.fillStyle='#c97955';ctx.fillRect(28,26,213,265);
    ctx.fillStyle='#579ac2';ctx.fillRect(275,33,198,247);
    ctx.fillStyle='#000000';ctx.fillRect(160,60,1,220);
+   // Two softly antialiased pixels along each side of the river. The old
+   // compositor overwrote these with solid political colors.
+   ctx.fillStyle='rgba(0,0,0,0.65)';ctx.fillRect(159,60,1,220);
+   ctx.fillStyle='rgba(0,0,0,0.65)';ctx.fillRect(161,60,1,220);
    const source=await new Promise(resolve=>fixture.toBlob(resolve,'image/png'));
    check(source?.size>100,'Cannot create fixture PNG');
    const fileInput=d.getElementById('file');
@@ -55,6 +59,9 @@
    const colorAt=(x,y)=>[...c.getImageData(x,y,1,1).data].slice(0,3);
    check(colorAt(0,0).every(v=>v===0),'Source water changed');
    check(colorAt(160,100).every(v=>v===0),'One-pixel water channel changed');
+   const fringe=colorAt(159,100),landNeighbor=colorAt(157,100);
+   check(fringe.every((v,i)=>v<=landNeighbor[i]+3)&&fringe.some((v,i)=>v<landNeighbor[i]-15),
+     'Anti-aliased river fringe was flattened: '+fringe+' vs '+landNeighbor);
    check(colorAt(100,100).join(',')!=='201,121,85','Old political colors leaked into regenerated land');
    check(colorAt(100,100).join(',')!=='0,0,0','Land became water');
    const prior=blobs.length;
