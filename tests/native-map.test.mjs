@@ -89,4 +89,35 @@ test('legacy generated maps can use same native API without new coastline fictio
    if(old.valid[i])assert.equal(m.getRegion(x,y),old.layers.regions[i]);
  }
 });
+
+// Stage A v2 projects are opt-in; 0.7.3's editor continues saving v1 safely.
+import {generatedMaster,saveProjectDocument,saveNativeProjectDocument,loadNativeProjectDocument,NATIVE_DOCUMENT_VERSION} from '../src/master-map.mjs';
+test('v2 native document roundtrip preserves exact geography and owner table',()=>{
+  const grid=spawnMap({seed:'doc-v2',width:65,height:48,regionCount:6});
+  const native=NativeMap.fromGrid(grid),master=generatedMaster(grid);
+  const encoded=saveNativeProjectDocument(grid,master,native);
+  assert.equal(encoded.documentVersion,NATIVE_DOCUMENT_VERSION);
+  const opened=loadNativeProjectDocument(JSON.parse(JSON.stringify(encoded)));
+  assert.equal(opened.requiresNativeMigration,false);
+  assert(opened.native.geometryEquals(native));
+  assert.deepEqual(opened.native.serialize(),native.serialize());
+  assert.deepEqual(opened.native.regionIds,native.regionIds);
+  const legacy=loadNativeProjectDocument(saveProjectDocument(grid,master));
+  assert.equal(legacy.native,null);
+  assert.equal(legacy.requiresNativeMigration,true);
+});
+test('v2 document loader fails closed on corrupt or missing native ownership',()=>{
+  const grid=spawnMap({seed:'doc-v2-bad',width:50,height:34,regionCount:4});
+  const original=saveNativeProjectDocument(grid,generatedMaster(grid),NativeMap.fromGrid(grid));
+  for (const modify of [
+    doc=>delete doc.native,
+    doc=>doc.master.nativeWidth++,
+    doc=>doc.native.width++,
+    doc=>doc.native.tiles[0].land='AA==',
+  ]) {
+    const corrupted=structuredClone(original);modify(corrupted);
+    assert.throws(()=>loadNativeProjectDocument(corrupted));
+  }
+});
+
 console.log('\n'+cases+' native foundation tests passed.');
