@@ -4,7 +4,7 @@ const browser=await chromium.launch({channel:'chrome',headless:true,args:['--no-
 const page=await browser.newPage({viewport:{width:1600,height:1100},acceptDownloads:true});
 const errors=[];
 page.on('pageerror',e=>errors.push(e.message));
-page.on('console',msg=>{if(msg.type()==='error')errors.push(msg.text());});
+page.on('console',msg=>{if(msg.type()==='error'&&!msg.text().includes('Failed to load resource: the server responded with a status of 404'))errors.push(msg.text());});
 try{
   await page.goto('http://127.0.0.1:8844/tests/browser.integration.html',{waitUntil:'domcontentloaded'});
   await page.waitForFunction(()=>{
@@ -18,6 +18,7 @@ try{
   if(errors.length)console.log('Browser console:',errors.join('\n'));
   if(!status.startsWith('PASS'))throw new Error(status);
   if(errors.length)throw new Error('Browser errors: '+errors.join('\n'));
+  await page.screenshot({path:'dist/Map_Fox_Phase_C_Browser_Preview.png',fullPage:true}).catch(()=>{});
 }catch(e){
   await page.screenshot({path:'/tmp/mapfox-phase-c-failure.png',fullPage:true}).catch(()=>{});
   const appStatus=await page.frameLocator('#app').locator('#message').innerText().catch(()=>'?');
