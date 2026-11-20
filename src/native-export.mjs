@@ -4,6 +4,7 @@
  * Uses strips to bound temporary pixel memory on large imported maps.
  */
 import {decodeBaseline} from './master-map.mjs';
+import {compositeNativePixels} from './native-composite.mjs';
 
 function colorHex(hex){return [1,3,5].map(i=>parseInt(hex.slice(i,i+2),16));}
 function imageBlob(dataUrl){
@@ -64,4 +65,32 @@ export async function renderNativeImportedPNG(map,master,{onProgress}={}){
 }
 export async function downloadCanvasPNG(canvas){
   return new Promise((resolve,reject)=>canvas.toBlob(blob=>blob?resolve(blob):reject(new Error('PNG export failed')),'image/png'));
+}
+
+/** Render the regenerated NATIVE political owner layer, not the working grid.
+ * Native waterpixels keep their original image pixels/shape exactly; every
+ * land pixel is completely recolored from current native political ownership.
+ * This calls the same shared compositor as the in-browser native viewport.
+ */
+export async function renderNativePoliticalPNG(master,native,palette,{onProgress,signal}={}){
+  if(master?.kind!=='imported'||!native||!palette)throw new Error('Native political map is unavailable');
+  if(master.nativeWidth!==native.width||master.nativeHeight!==native.height)
+    throw new Error('Native politics and source-image dimensions disagree');
+  const source=await createImageBitmap(imageBlob(master.imageDataUrl));
+  const canvas=document.createElement('canvas');canvas.width=native.width;canvas.height=native.height;
+  const ctx=canvas.getContext('2d',{willReadFrequently:true});
+  if(!ctx){source.close?.();throw new Error('Cannot create a full-resolution export canvas');}
+  try{
+    ctx.drawImage(source,0,0);
+    for(let y0=0;y0<native.height;y0+=96){
+      if(signal?.aborted)throw new Error('Native PNG export cancelled');
+      const rows=Math.min(96,native.height-y0);
+      const part=ctx.getImageData(0,y0,native.width,rows);
+      compositeNativePixels(part.data,native.width,rows,native,palette,{originX:0,originY:y0});
+      ctx.putImageData(part,0,y0);
+      onProgress?.(Math.round(100*(y0+rows)/native.height));
+      if(y0%768===0)await new Promise(resolve=>setTimeout(resolve,0));
+    }
+    return canvas;
+  }finally{source.close?.();}
 }

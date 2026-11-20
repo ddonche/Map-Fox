@@ -90,15 +90,23 @@ export function loadProjectDocument(data) {
  * Existing loadProjectDocument keeps accepting v1 and grid-v6 documents.
  */
 export const NATIVE_DOCUMENT_VERSION = 2;
-export function saveNativeProjectDocument(map, master, native) {
+export function saveNativeProjectDocument(map, master, native, politics=null) {
   if (!(native instanceof NativeMap)) throw new Error('Native political map is required');
   if (!master || native.width !== master.nativeWidth || native.height !== master.nativeHeight)
     throw new Error('Native political resolution differs from master geography');
   if (master.workingWidth !== map.width || master.workingHeight !== map.height)
     throw new Error('Working map and master dimensions do not match');
+  if(politics){
+    if(!Array.isArray(politics.palette)||politics.palette.length!==native.regionIds.length)
+      throw new Error('Native political palette does not match region IDs');
+    const ids=new Set(native.regionIds);
+    for(const p of politics.palette)if(!ids.has(p.id)||typeof p.color!=='string'||!/^#[a-f0-9]{6}$/i.test(p.color))
+      throw new Error('Invalid native political palette entry');
+  }
   return {
-    format:DOCUMENT_FORMAT,documentVersion:NATIVE_DOCUMENT_VERSION,appVersion:'0.7.4-stage-a',
-    master, map:serializeMap(map), native:native.serialize()
+    format:DOCUMENT_FORMAT,documentVersion:NATIVE_DOCUMENT_VERSION,appVersion:'0.7.4-stage-c',
+    master, map:serializeMap(map), native:native.serialize(),
+    politics:politics?{palette:politics.palette.map(p=>({...p})),seed:String(politics.seed??'')}:null
   };
 }
 export function loadNativeProjectDocument(data) {
@@ -109,7 +117,17 @@ export function loadNativeProjectDocument(data) {
     const native=NativeMap.deserialize(data.native);
     if (native.width!==legacyFields.master.nativeWidth || native.height!==legacyFields.master.nativeHeight)
       throw new Error('Native tile dimensions do not match master source');
-    return {...legacyFields,native,requiresNativeMigration:false};
+    const politics=data.politics??null;
+    if(politics){
+      if(!Array.isArray(politics.palette)||politics.palette.length!==native.regionIds.length)
+        throw new Error('Native political palette is incomplete');
+      const remaining=new Set(native.regionIds);
+      for(const p of politics.palette){
+        if(!remaining.delete(p.id)||typeof p.color!=='string'||!/^#[a-f0-9]{6}$/i.test(p.color))
+          throw new Error('Invalid native political palette');
+      }
+    }
+    return {...legacyFields,native,politics,requiresNativeMigration:false};
   }
   const legacy=loadProjectDocument(data);
   // Deliberately DO NOT upscale a 0.7.3 grid and call it native ownership.

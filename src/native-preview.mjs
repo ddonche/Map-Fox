@@ -4,8 +4,9 @@
  * downsampled editor grid. Editor ownership changes are applied on top.
  */
 import {decodeBaseline} from './master-map.mjs';
+import {compositeNativePixels} from './native-composite.mjs';
 
-export function createNativePreview({mapCanvas,mapFrame,viewport,getMap,getMaster,getView}){
+export function createNativePreview({mapCanvas,mapFrame,viewport,getMap,getMaster,getView,getNativePolitics=()=>null,getNativePalette=()=>[]}){
   let image=null,imageMaster=null,requestedMaster=null,requestToken=0;
   let framePending=false,paintState=null,paintStateVersion=-1,dirtyVersion=0;
   const ctx=viewport.getContext('2d',{willReadFrequently:true});
@@ -69,6 +70,23 @@ export function createNativePreview({mapCanvas,mapFrame,viewport,getMap,getMaste
     ctx.imageSmoothingEnabled=true;
     ctx.imageSmoothingQuality='high';
     ctx.drawImage(image,sx,sy,sW,sH,x0*dpr,y0*dpr,(x1-x0)*dpr,(y1-y0)*dpr);
+    // After political reroll, the native owner tiles are the ONLY political
+    // truth for both this preview and exported PNG. Never expose the old
+    // original political colors or a coarse-grid overlay.
+    const native=getNativePolitics();
+    if(native){
+      const rx0=Math.max(0,Math.floor(x0*dpr)),ry0=Math.max(0,Math.floor(y0*dpr));
+      const rw=Math.min(pw-rx0,Math.ceil(x1*dpr)-rx0),rh=Math.min(ph-ry0,Math.ceil(y1*dpr)-ry0);
+      if(rw<=0||rh<=0)return;
+      const pixels=ctx.getImageData(rx0,ry0,rw,rh);
+      compositeNativePixels(pixels.data,rw,rh,native,getNativePalette(),{
+        originX:(rx0/dpr-left)/sw*image.width,
+        originY:(ry0/dpr-top)/sh*image.height,
+        stepX:image.width/(sw*dpr),stepY:image.height/(sh*dpr)
+      });
+      ctx.putImageData(pixels,rx0,ry0);
+      return;
+    }
     const edit=state();if(!edit?.changed)return;
     const rx0=Math.max(0,Math.floor(x0*dpr)),ry0=Math.max(0,Math.floor(y0*dpr));
     const rw=Math.min(pw-rx0,Math.ceil(x1*dpr)-rx0),rh=Math.min(ph-ry0,Math.ceil(y1*dpr)-ry0);
