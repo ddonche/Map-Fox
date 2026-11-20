@@ -118,4 +118,37 @@ await test('sparse 9201 x 6600 map retains exact tiny land at far edges',async()
   assert.equal(result.map.isLand(9200,6599),false);
   assert.equal(result.map.isLand(9170,6500),true);
 });
+
+await test('dense 2048 x 1469 native ownership is generated at every source pixel',async()=>{
+  const w=2048,h=1469,big=new NativeMap(w,h);
+  // Fill packed native tiles directly to avoid spending test time calling
+  // setLand() three million times (the normal importer builds these tiles).
+  const ts=big.tileSize;
+  for(let ty=0;ty<big.rows;ty++)for(let tx=0;tx<big.columns;tx++){
+    const tw=Math.min(ts,w-tx*ts),th=Math.min(ts,h-ty*ts),n=tw*th;
+    const bits=new Uint8Array(Math.ceil(n/8));bits.fill(255);
+    if(n%8)bits[bits.length-1]=(1<<(n%8))-1;
+    const owners=new Uint16Array(n);owners.fill(65535);
+    big.tiles.set(ty*big.columns+tx,{landBits:bits,owners});
+  }
+  for(let y=0;y<h;y++)big.setLand(1024,y,false);
+  for(let x=0;x<w;x++)big.setLand(x,735,false);
+  const start=Date.now();
+  const out=await regenerateNativePolitics(big,{
+    regionCount:12,seed:'everwind-large-phase-b',
+    maxPlanningCells:14000,yieldEveryTiles:16
+  });
+  const duration=Date.now()-start;
+  console.log('Native dense 2048 x 1469 regenerate: '+duration+' ms');
+  assert.equal(out.stats.width,w);
+  assert.equal(out.stats.height,h);
+  assert(out.map.geometryEquals(big));
+  assert.equal(out.map.isLand(1024,200),false);
+  assert.equal(out.map.getRegion(1024,200),null);
+  assert.equal(out.map.getRegion(900,735),null);
+  assert.equal(out.stats.assigned+out.stats.unclaimed,out.stats.nativeLandCells);
+  assert(out.stats.nativeLandCells>2900000);
+  assert(out.stats.refinedPixels>1000);
+});
+
 console.log('\n'+cases+' native political regeneration tests passed.');
