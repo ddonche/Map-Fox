@@ -30,6 +30,10 @@ export async function loadNativeGeography(master,{signal=null,onProgress=null,wa
   if(!ctx){bitmap.close?.();throw new Error('Native image scan is unavailable in this browser');}
   const tol2=waterTolerance*waterTolerance;
   let count=0,land=0;
+  // Geography-only source tiles share immutable, all-unclaimed owner buffers.
+  // For a 9201x6600 map this avoids ~120 MB of duplicate owner storage;
+  // the actual political variation gets its own independently writable tiles.
+  const blankOwners=new Map();
   const total=map.rows*map.columns;
   try{
     for(let ty=0;ty<map.rows;ty++){
@@ -50,7 +54,8 @@ export async function loadNativeGeography(master,{signal=null,onProgress=null,wa
           bits[i>>>3]|=1<<(i&7);land++;hasLand=true;
         }
         if(hasLand){
-          const owners=new Uint16Array(length);owners.fill(UNCLAIMED);
+          let owners=blankOwners.get(length);
+          if(!owners){owners=new Uint16Array(length);owners.fill(UNCLAIMED);blankOwners.set(length,owners);}
           map.tiles.set(ty*map.columns+tx,{landBits:bits,owners});
         }
         count++;
@@ -63,6 +68,9 @@ export async function loadNativeGeography(master,{signal=null,onProgress=null,wa
     cancelled();
     onProgress?.({phase:'geography',percent:100});
     if(!land)throw new Error('The source image contains no land outside the selected water color');
+    // No caller may mutate owners or geography on this shared-buffer source;
+    // regeneration returns a distinct, writable NativeMap when committed.
+    map._sourceImmutable=true;
     return map;
   }finally{bitmap.close?.();}
 }
