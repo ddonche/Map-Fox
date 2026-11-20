@@ -95,6 +95,28 @@ function mfLandCoverage(r,g,b,old,water){
   return bestError<=225?bestCoverage:1;
 }
 
+
+// Some genuinely thin Photoshop waterways have no exact-black center pixel
+// after anti-aliasing. Treat a dark, palette-matching linear feature as a
+// geographic detail only if nearby ORIGINAL pixels are significantly brighter.
+// This prevents flat dark-colored regions from being mistaken for water lines.
+function mfThinWaterLine(source,width,height,x,y,stepX,stepY,water){
+  const k=(y*width+x)*4;
+  const r=source[k]-water[0],g=source[k+1]-water[1],b=source[k+2]-water[2];
+  const darkness=Math.max(Math.abs(r),Math.abs(g),Math.abs(b));
+  if(darkness>102)return false;
+  const dx=Math.min(24,Math.max(2,Math.ceil(1.5/stepX)));
+  const dy=Math.min(24,Math.max(2,Math.ceil(1.5/stepY)));
+  const points=[[x-dx,y],[x+dx,y],[x,y-dy],[x,y+dy]];
+  for(const [xx,yy] of points){
+    if(xx<0||yy<0||xx>=width||yy>=height)continue;
+    const i=(yy*width+xx)*4;
+    const bright=Math.max(Math.abs(source[i]-water[0]),Math.abs(source[i+1]-water[1]),Math.abs(source[i+2]-water[2]));
+    if(bright>=darkness+35)return true;
+  }
+  return false;
+}
+
 /**
  * Replace source land pixels in a decoded RGBA rectangle.
  *
@@ -114,11 +136,12 @@ export function compositeNativePixels(data,width,height,native,palette,{originX=
   const sourceColors=sourcePalette?mfSourcePalette(sourcePalette,waterColor):[];
   const restoreWaterFringe=sourceColors.length>0;
   const unclaimed=native.regionIds.length;
-  const xLocal=new Int32Array(width),xTile=new Int32Array(width),xNative=new Int32Array(width);
+  const sourceSnapshot=restoreWaterFringe?data.slice():null;
+  const xLocal=new Int32Array(width),xTile=new Int32Array(width);
   for(let x=0;x<width;x++){
     const nx=Math.floor(originX+(x+.5)*stepX);
     if(nx<0||nx>=native.width){xTile[x]=-1;continue;}
-    const tx=Math.floor(nx/ts);xTile[x]=tx;xLocal[x]=nx-tx*ts;xNative[x]=nx;
+    const tx=Math.floor(nx/ts);xTile[x]=tx;xLocal[x]=nx-tx*ts;
   }
   let changed=0;
   for(let y=0;y<height;y++){
@@ -136,8 +159,11 @@ export function compositeNativePixels(data,width,height,native,palette,{originX=
       const code=tile.owners[offset],k=(row+x)*4;
       const ci=(code===UNCLAIMED?unclaimed:code)*3;
       let coverage=1;
-      if(fringe&&(fringe[offset>>>3]&(1<<(offset&7)))){
-        coverage=mfLandCoverage(data[k],data[k+1],data[k+2],sourceColors,waterColor);
+      if(restoreWaterFringe&&(
+        (fringe&&(fringe[offset>>>3]&(1<<(offset&7)))) ||
+        mfThinWaterLine(sourceSnapshot,width,height,x,y,stepX,stepY,waterColor)
+      )){
+        coverage=mfLandCoverage(sourceSnapshot[k],sourceSnapshot[k+1],sourceSnapshot[k+2],sourceColors,waterColor);
       }
       if(coverage<1){
         const waterPart=1-coverage;
