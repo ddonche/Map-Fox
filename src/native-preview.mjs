@@ -82,7 +82,8 @@ export function createNativePreview({mapCanvas,mapFrame,viewport,getMap,getMaste
       compositeNativePixels(pixels.data,rw,rh,native,getNativePalette(),{
         originX:(rx0/dpr-left)/sw*image.width,
         originY:(ry0/dpr-top)/sh*image.height,
-        stepX:image.width/(sw*dpr),stepY:image.height/(sh*dpr)
+        stepX:image.width/(sw*dpr),stepY:image.height/(sh*dpr),
+        sourcePalette:master.baselinePalette,waterColor:master.background||[0,0,0]
       });
       ctx.putImageData(pixels,rx0,ry0);
       return;
