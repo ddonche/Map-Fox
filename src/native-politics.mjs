@@ -15,28 +15,28 @@
 import {NativeMap,UNCLAIMED} from './native-map.mjs';
 import {growRegions} from './spawner.mjs';
 
-const clamp=(x,a,b)=>Math.max(a,Math.min(b,x));
-const smooth=t=>t*t*(3-2*t);
-function hashSeed(value){
+const npClamp=(x,a,b)=>Math.max(a,Math.min(b,x));
+const npSmooth=t=>t*t*(3-2*t);
+function npHashSeed(value){
   let h=2166136261>>>0;
   for(const c of String(value)){h=Math.imul(h^c.charCodeAt(0),16777619)>>>0;}
   return h>>>0;
 }
-function hash2(x,y,seed){
+function npHash2(x,y,seed){
   let h=(Math.imul(x,374761393)^Math.imul(y,668265263)^seed)>>>0;
   h=Math.imul(h^(h>>>13),1274126177)>>>0;
   return ((h^(h>>>16))>>>0)/4294967295*2-1;
 }
-function noise(x,y,seed){
-  const ix=Math.floor(x),iy=Math.floor(y),fx=smooth(x-ix),fy=smooth(y-iy);
-  const a=hash2(ix,iy,seed),b=hash2(ix+1,iy,seed);
-  const c=hash2(ix,iy+1,seed),d=hash2(ix+1,iy+1,seed);
+function npNoise(x,y,seed){
+  const ix=Math.floor(x),iy=Math.floor(y),fx=npSmooth(x-ix),fy=npSmooth(y-iy);
+  const a=npHash2(ix,iy,seed),b=npHash2(ix+1,iy,seed);
+  const c=npHash2(ix,iy+1,seed),d=npHash2(ix+1,iy+1,seed);
   return (a+(b-a)*fx)*(1-fy)+(c+(d-c)*fx)*fy;
 }
-function checkCancelled(signal){
+function npCheckCancelled(signal){
   if(signal?.aborted)throw new Error('Native political regeneration cancelled');
 }
-function planningSize(width,height,maxCells){
+function npPlanningSize(width,height,maxCells){
   const scale=Math.min(1,Math.sqrt(maxCells/(width*height)));
   let w=Math.max(1,Math.floor(width*scale)),h=Math.max(1,Math.floor(height*scale));
   while(w*h>maxCells)w>=h?w--:h--;
@@ -96,7 +96,7 @@ export function sampleNativePlanningMask(source,plannerWidth,plannerHeight){
  * Deterministic multi-source 4-neighbor BFS, including explicit unclaimed
  * land as a label. This assigns sub-planner islands without creating land.
  */
-function nearestLabels(planned,width,height){
+function npNearestLabels(planned,width,height){
   const labels=new Int32Array(width*height).fill(-2);
   const queue=new Int32Array(width*height);
   let head=0,tail=0;
@@ -115,7 +115,7 @@ function nearestLabels(planned,width,height){
   }
   return labels;
 }
-function boundaryFlags(labels,width,height){
+function npBoundaryFlags(labels,width,height){
   const flags=new Uint8Array(width*height);
   for(let y=0;y<height;y++)for(let x=0;x<width;x++){
     const i=y*width+x,v=labels[i];
@@ -126,22 +126,22 @@ function boundaryFlags(labels,width,height){
   }
   return flags;
 }
-function buildWarp(width,height,seed,roughness){
+function npBuildWarp(width,height,seed,roughness){
   // The continuous displacement field is defined in planning coordinates
   // but sampled at native pixels. Sampling its bilinear interpolation yields
   // sub-cell political contours, never repeated planning rectangles.
   const step=2,fw=width*step+1,fh=height*step+1;
   const dx=new Float32Array(fw*fh),dy=new Float32Array(fw*fh);
-  const a=hashSeed(String(seed)+':native-warp-x'),b=hashSeed(String(seed)+':native-warp-y');
+  const a=npHashSeed(String(seed)+':native-warp-x'),b=npHashSeed(String(seed)+':native-warp-y');
   for(let y=0;y<fh;y++)for(let x=0;x<fw;x++){
     const fx=x/step,fy=y/step,i=y*fw+x;
-    dx[i]=roughness*(.58*noise(fx/2.7,fy/2.7,a)+.17*noise(fx/.67,fy/.67,a^0xb2f1a93d));
-    dy[i]=roughness*(.58*noise(fx/2.7,fy/2.7,b)+.17*noise(fx/.67,fy/.67,b^0x37dc08f1));
+    dx[i]=roughness*(.58*npNoise(fx/2.7,fy/2.7,a)+.17*npNoise(fx/.67,fy/.67,a^0xb2f1a93d));
+    dy[i]=roughness*(.58*npNoise(fx/2.7,fy/2.7,b)+.17*npNoise(fx/.67,fy/.67,b^0x37dc08f1));
   }
   return {dx,dy,width:fw,height:fh};
 }
-function warped(field,x,y){
-  const fx=clamp(x*2+1,0,field.width-1),fy=clamp(y*2+1,0,field.height-1);
+function npWarped(field,x,y){
+  const fx=npClamp(x*2+1,0,field.width-1),fy=npClamp(y*2+1,0,field.height-1);
   const ix=Math.floor(fx),iy=Math.floor(fy),tx=fx-ix,ty=fy-iy;
   const jx=Math.min(field.width-1,ix+1),jy=Math.min(field.height-1,iy+1);
   const i00=iy*field.width+ix,i10=iy*field.width+jx;
@@ -153,8 +153,8 @@ function warped(field,x,y){
     vy[i00]*w00+vy[i10]*w10+vy[i01]*w01+vy[i11]*w11
   ];
 }
-function weightedLabel(labels,pw,ph,gx,gy){
-  gx=clamp(gx,0,pw-1);gy=clamp(gy,0,ph-1);
+function npWeightedLabel(labels,pw,ph,gx,gy){
+  gx=npClamp(gx,0,pw-1);gy=npClamp(gy,0,ph-1);
   const x0=Math.floor(gx),y0=Math.floor(gy),x1=Math.min(pw-1,x0+1),y1=Math.min(ph-1,y0+1);
   const fx=gx-x0,fy=gy-y0;
   const ids=[labels[y0*pw+x0],labels[y0*pw+x1],labels[y1*pw+x0],labels[y1*pw+x1]];
@@ -195,19 +195,19 @@ export async function regenerateNativePolitics(source,options={}){
   if(!Number.isInteger(yieldEveryTiles)||yieldEveryTiles<1||yieldEveryTiles>1024)
     throw new Error('Invalid native regeneration yield size');
   const notify=(phase,pct)=>{if(typeof onProgress==='function')onProgress({phase,percent:pct});};
-  checkCancelled(signal);
+  npCheckCancelled(signal);
   const w=source.width,h=source.height;
-  const [pw,ph]=planningSize(w,h,Math.floor(maxPlanningCells));
+  const [pw,ph]=npPlanningSize(w,h,Math.floor(maxPlanningCells));
   notify('sampling',0);
   const sampled=sampleNativePlanningMask(source,pw,ph);
-  checkCancelled(signal);
+  npCheckCancelled(signal);
   if(!sampled.totalLand)throw new Error('Cannot regenerate politics without native land pixels');
   notify('planning',10);
   const planned=growRegions({
     valid:sampled.valid,width:pw,height:ph,seed,
     regionCount:n,independentIslandRegions,unclaimedIslandRate
   });
-  checkCancelled(signal);
+  npCheckCancelled(signal);
   const ownerIds=regionIds===null?planned.palette.map(p=>p.id):regionIds;
   if(!Array.isArray(ownerIds)||ownerIds.length!==planned.palette.length||
      new Set(ownerIds).size!==ownerIds.length)
@@ -215,14 +215,14 @@ export async function regenerateNativePolitics(source,options={}){
   const result=new NativeMap(w,h,{tileSize:source.tileSize,regionIds:ownerIds});
   const palette=planned.palette.map((p,i)=>({...p,id:ownerIds[i]}));
   const count=Math.max(1,ownerIds.length);
-  const labels=nearestLabels({valid:sampled.valid,regions:planned.regions},pw,ph);
-  const flags=boundaryFlags(labels,pw,ph);
-  const warp=buildWarp(pw,ph,seed,roughness);
+  const labels=npNearestLabels({valid:sampled.valid,regions:planned.regions},pw,ph);
+  const flags=npBoundaryFlags(labels,pw,ph);
+  const warp=npBuildWarp(pw,ph,seed,roughness);
   notify('refining',20);
   let assigned=0,unclaimed=0,refined=0,subPlannerLand=0,processed=0;
   const tiles=[...source.tiles].sort((a,b)=>a[0]-b[0]);
   for(const [key,t] of tiles){
-    checkCancelled(signal);
+    npCheckCancelled(signal);
     const tx=(key%source.columns)*source.tileSize,ty=Math.floor(key/source.columns)*source.tileSize;
     const tw=Math.min(source.tileSize,w-tx),th=Math.min(source.tileSize,h-ty);
     const owners=new Uint16Array(tw*th);owners.fill(UNCLAIMED);
@@ -233,7 +233,7 @@ export async function regenerateNativePolitics(source,options={}){
         const local=row+lx;
         if(!(geography[local>>>3]&(1<<(local&7))))continue;
         const x=tx+lx,gx=(x+.5)*pw/w-.5;
-        const pX=clamp(Math.round(gx),0,pw-1),pY=clamp(Math.round(gy),0,ph-1),pi=pY*pw+pX;
+        const pX=npClamp(Math.round(gx),0,pw-1),pY=npClamp(Math.round(gy),0,ph-1),pi=pY*pw+pX;
         let political;
         if(n===0)political=-1;
         else if(!sampled.valid[pi]){
@@ -243,8 +243,8 @@ export async function regenerateNativePolitics(source,options={}){
         } else if(!flags[pi]){
           political=labels[pi];
         } else {
-          const [wx,wy]=warped(warp,gx,gy);
-          political=weightedLabel(labels,pw,ph,gx+wx,gy+wy);
+          const [wx,wy]=npWarped(warp,gx,gy);
+          political=npWeightedLabel(labels,pw,ph,gx+wx,gy+wy);
           refined++;
         }
         if(political<0)unclaimed++;
@@ -258,11 +258,11 @@ export async function regenerateNativePolitics(source,options={}){
     processed++;
     if(processed%yieldEveryTiles===0){
       notify('refining',20+Math.round(75*processed/Math.max(1,tiles.length)));
-      checkCancelled(signal);
+      npCheckCancelled(signal);
       await new Promise(resolve=>setTimeout(resolve,0));
     }
   }
-  checkCancelled(signal);
+  npCheckCancelled(signal);
   if(assigned+unclaimed!==sampled.totalLand)throw new Error('Native ownership coverage mismatch');
   if(!result.geometryEquals(source))throw new Error('Native coastlines changed during regeneration');
   notify('complete',100);
