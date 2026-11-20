@@ -50,13 +50,13 @@ The checked-in `index.html` is the **working 0.7.3 application** with modular so
 - Fext round-trip restoration against an original high-resolution coastline is **future** work.
 - This baseline is pre-MVP, even if selected functional tests pass.
 
-## Next engineering milestone — 0.7.4 (Stages A+B complete; Stages C–E planned)
+## Next engineering milestone — 0.7.4 (Stages A–C complete; Stages D–E planned)
 
 **[Full implementation plan: native-resolution political ownership](docs/IMPLEMENTATION_0.7.4.md)**
 
 The 0.7.3 editor retains and displays native imported source pixels, but political reroll and painting still derive from a smaller working grid. `regeneratePoliticalMap()` uses a planning grid capped at about 190,000 cells and then enlarges ownership; this explains the visibly stair-stepped regenerated nations. 0.7.4 will introduce a **native land/water mask and native political-owner tiles**, refine new borders at source resolution, and make reroll, editing, rendering, PNG export, and save/reopen use the **same authoritative native ownership**. Imported maps are the first end-to-end target; native-quality procedural geography remains the following milestone. Keep the current UI.
 
-The implementation is divided into five testable changes in the linked plan. **Stages A and B are committed**: native 256×256 tile data model, exact land mask, dense-index owner tiles, opt-in document-v2 codec, and deterministic `regenerateNativePolitics()` with native-scale refined boundaries, progress/cancel support and tests. **The 0.7.3 editor is still unchanged:** its Regenerate button does NOT yet invoke native politics. Next is Stage C: connect authoritative native ownership to preview and PNG export without losing old project compatibility. Stage D switches painting and Undo. Do not describe 0.7.4 as shipped.
+The implementation is divided into five testable changes in the linked plan. **Stages A–C are committed.** The 0.7.3-based development app now scans original imported pixels to build exact native geography, runs deterministic native political regeneration from its Regenerate button, renders the result using a shared native political compositor in preview and full-resolution PNG, and saves/reopens native version-2 projects. Browser integration tests cover these operations. **Stage D is next:** native painting/fill/Undo/Redo and the rest of the editing operations. Those legacy grid edits are currently guarded on native political variations, and Fext export is deliberately blocked rather than exporting stale political ownership. Stage E handles full packaging/performance. Native-quality procedurally generated geography is still later. Do not call 0.7.4 released.
 
 ## Roadmap: ordered milestones
 

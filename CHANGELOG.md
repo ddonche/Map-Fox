@@ -2,7 +2,7 @@
 
 All notable changes to Map Fox will be recorded here. Version numbering is continuous with the former Map Spawner V7.2; **0.7.3 is the current development series**, not 0.1.
 
-## [0.7.4 — in development] — 2026-11-19 (Stages A and B)
+## [0.7.4 — in development] — 2026-11-19 (Stages A–C)
 
 - Added isolated, testable native tile model in `src/native-map.mjs`: bit-packed exact geography, independent owner tiles, stable arbitrary IDs, sparse 256-pixel tiles, native RGBA classification and geography-preserving political replacement.
 - Added an **opt-in** document version-2 codec in `src/master-map.mjs`, with native serialization, validation and explicit v1/v6 migration required status. The released 0.7.3 application still saves and displays legacy v1 data.
@@ -10,6 +10,13 @@ All notable changes to Map Fox will be recorded here. Version numbering is conti
 - **Phase B native regeneration engine added:** `src/native-politics.mjs` samples the exact native land mask into a bounded political planning graph, calls the existing seeded region algorithm, and refines ownership **at each native land pixel** using a continuous, deterministic, smoothly displaced influence field. Original geography is copied bit-for-bit. Includes optional stable region ID table, island fallback, zero-region case, cancellation/progress and validation.
 - Added nine native political tests, including deterministic rerolls, one-pixel straits/lakes, true within-planner-cell boundaries, a 9201×6600 sparse map and a dense 2048×1469 synthetic map; the existing `npm test` and standalone build pass.
 - **Not shipped in the editor:** the Regenerate button still uses the old coarse-grid path. Preview/export integration (Stage C), native painting/Undo (Stage D), worker/packed project format (Stage E) are still pending. No visible version bump was made.
+
+- **Phase C native UI integration:** imported map Regenerate now invokes the seeded native engine, with progress, cancellation and atomic commit; generated-map rerolls remain legacy until native geography generation.
+- Added `src/native-source.mjs` for exact full-size black-water source classification, `src/native-composite.mjs` as shared viewport/PNG ownership compositor, and full-native export in `src/native-export.mjs`. Source water pixels are retained and all native land pixels use current territory colors (no obsolete imported territory patches).
+- Version-2 project saves now preserve native political owner tiles, palette, seed and original image; reopened variations display the same native regions. Older project formats remain readable.
+- Headless browser integration covers import → native reroll → black water → PNG → save/reopen and PNG parity. The CI build produces a browser screenshot artifact.
+- **Guarded until Stage D:** legacy brush/fill and bulk grid editing cannot silently alter a native variation. Native Fext grid export is deliberately unsupported until it can derive from the native owner layer.
+- Visible app version remains `0.7.3`; these are 0.7.4 development changes, not a release.
 
 ## [0.7.3] — 2026-11-18 (image-first foundation)
 

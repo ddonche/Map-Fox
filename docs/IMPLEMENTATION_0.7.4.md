@@ -1,6 +1,6 @@
 # Map Fox 0.7.4 — Native-Resolution Political Layer
 
-**Status:** Stages A and B implemented/tested on `main` (native tile model + standalone political regeneration); Stages C–E **not implemented yet**. The visible app remains 0.7.3.  
+**Status:** Stages A, B and C implemented/tested on `main` (native tile model, regeneration, imported-map preview/export and version-2 save/reopen); Stages D–E **not implemented yet**. The app is still marked 0.7.3 until 0.7.4 is complete.  
 **Prepared:** 2026-11-19  
 **Baseline:** Map Fox 0.7.3, `main` branch.  
 **Product direction:** Standalone image-first political map generator/editor. Fext remains an optional derived export.
@@ -32,6 +32,22 @@
 - **No UI claim:** `src/app.mjs` still calls the 0.7.3 `regeneratePoliticalMap()` for the Regenerate button, and `src/native-preview.mjs`/`src/native-export.mjs` still show working-grid edits. Phase C is needed before the native political result is visible or exportable.
 
 **Next:** Stage C — make the native political layer authoritative in preview and PNG export, and connect the regeneration path with a safe transition. Stage D will make painting, eyedropper, fill and Undo/Redo operate on the same native tiles.
+
+## Phase C implementation record — 2026-11-19
+
+**Native regeneration is now visible for imported maps.** Added and connected:
+
+- `src/native-source.mjs`: scans the embedded full-resolution imported image into 256×256 immutable source water/land tiles, **without downsizing to the editor grid**. Clean/exact images treat the selected background RGB as water; no supposed black political borders are invented. Source-only tiles reuse immutable unclaimed-owner arrays to avoid duplicate 120 MB allocations on a 9201×6600 image. Progress and cancellation are supported.
+- `src/app.mjs`: imported maps use `regenerateNativePolitics()` from the Regenerate button. The native result is committed only after a complete run with unchanged source and validated geometry. Cancel and repeated seed variations are supported. Procedurally generated maps still use the old grid generator pending native-quality geography generation.
+- `src/native-composite.mjs`: the **single authoritative political color compositor** for native viewport and PNG export. It colors every source land pixel from the current owner and palette, leaving water pixels from the original source untouched. It does not superimpose new regions over the original old political colors.
+- `src/native-preview.mjs` and `src/native-export.mjs`: both use the shared compositor, with native ownership coordinates, so preview and output don't project a coarse political grid.
+- `src/master-map.mjs`: version-2 native projects include political palette + seed in addition to owner tiles. `src/app.mjs` reopens version-2 projects and displays/exports the actual saved native ownership. Grid-v6 and 0.7.3 document-v1 remain readable.
+- `tests/native-composite.test.mjs`: tests 1-pixel water, nonconsecutive region IDs, old-color removal and precise preview/export rectangle parity.
+- `tests/browser.integration.html`, `tests/run-browser-smoke.mjs` and GitHub CI: **actual headless Chromium/Playwright workflow** exercises imported flat-color PNG → click native Regenerate → inspect water-preserving PNG → save native document v2 → reopen native project and verify output, alongside the standalone build.
+
+**Phase C limitations deliberately enforced:** Native painting/fill, region merging and other legacy working-grid writes are guarded while a native political variation is active, because they would silently corrupt the authoritative native result. Recoloring and native eyedropper (read-only selection) work. Restoring the original returns to the editable legacy source. Fext export is blocked from native political variations until it can derive from native ownership. **Phase D** enables native painting, eyedropper painting, fill, Undo/Redo and area tools; **Phase E** adds fuller packaging, workers and performance validation. Native-quality generated geography remains later work.
+
+**Validation:** Node tests and standalone build passed, and browser integration passed using a 512×320 synthetic flat-color map with a 1-pixel black channel. This is an actual working UI integration, not yet a user-reviewed Everwind visual result. Native 9201×6600 performance and real Everwind appearance still need inspection.
 
 ## The bug this milestone addresses
 
@@ -196,7 +212,7 @@ For a no-change imported-map presentation, an exact original-pixels mode may rem
 
 1. **PR A — Native document & tiles:** introduce testable native geometry and ownership APIs, project migration scaffold; existing UI behavior unchanged. Test exact water mask and project roundtrip.
 2. **PR B — Regeneration engine (completed):** plan broadly, refine at native scale, assign tiny-island fallback ownership, validate and return a new immutable-by-contract native result. Progress/cancel callbacks are present. **UI progress button/apply wiring waits for Stage C**. Tests cover smooth high-res boundaries and exact geography.
-3. **PR C — Renderer + export:** unify viewport and native PNG compositing from authoritative tiles; eliminate old-image territorial color leakage. Pixel-perfect preview/export consistency tests.
+3. **PR C — Renderer + export (completed for imported maps):** unified compositor, imported native regeneration button, v2 save/reopen and browser smoke test. Legacy editor painting remains isolated/guarded until PR D.
 4. **PR D — Editing:** native eyedropper, brush, fill, Undo/Redo and efficient dirty-tile rendering. Stress test at zoom and narrow straits.
 5. **PR E — Packaging / migration / performance:** .mapfox save/reopen, legacy loading, standalone worker packaging, benchmarks, documentation, final release checklist.
 
