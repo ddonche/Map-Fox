@@ -127,6 +127,7 @@ export class NativeMap {
   }
   // Geography edits must be explicit: politics methods may never alter land.
   setLand(x,y,land) {
+    if(this._sourceImmutable)throw new Error('Source geography is immutable');
     if (typeof land!=='boolean') throw new Error('Land must be boolean');
     const w=this._where(x,y),t=this._tile(w,land);
     if (!t) return;
@@ -135,6 +136,7 @@ export class NativeMap {
     else {t.landBits[byte]&=~bit;t.owners[w.offset]=UNCLAIMED;}
   }
   setRegion(x,y,id) {
+    if(this._sourceImmutable)throw new Error('Source geography is immutable');
     const w=this._where(x,y),t=this._tile(w);
     if (!t || !(t.landBits[w.offset>>>3] & (1<<(w.offset&7))))
       throw new Error('Cannot assign a political region to water');
@@ -200,6 +202,7 @@ export class NativeMap {
   }
   // Atomic political replacement: never overwrite the current coastline.
   replacePolitics(other) {
+    if(this._sourceImmutable)throw new Error('Source geography is immutable');
     if (!(other instanceof NativeMap)||!this.geometryEquals(other))
       throw new Error('Political variation would change native geography');
     this.regionIds=[...other.regionIds];
