@@ -214,6 +214,7 @@ function paint(){
   if($('simPreviewBox'))$('simPreviewBox').classList.add('hidden');
   if($('simResult'))$('simResult').textContent='';
   if(!current)return;const m=current,canvas=$('map'),view=$('view').value;
+  if(nativePolitics&&view!=='regions'){$('view').value='regions';message('Only the political view is available while native ownership is active.');}
   // Display imported original-resolution image in the viewport, not the working grid.
   nativePreview?.markDataChanged();
   if(nativePreview?.sync(view))return;
@@ -258,23 +259,24 @@ function refreshInfo(){if(!current)return;const m=current,assigned=new Set();let
   $('infoStyle').textContent=m.style.replaceAll('-',' ');$('infoSize').textContent=`${m.width} × ${m.height}`;
   $('infoMaster').textContent=`${master?.nativeWidth??m.width} × ${master?.nativeHeight??m.height}`+ (master?.kind==='imported'?' · original saved':master?.kind==='generated'?' · generated grid':' · legacy project');
   $('infoLand').textContent=`${format(land)} (${(100*land/m.valid.length).toFixed(1)}%)`;
-  $('infoRegions').textContent=assigned.size;$('infoEmpty').textContent=format(empty);
+  $('infoRegions').textContent=nativePolitics?nativePolitics.regionIds.length:assigned.size;
+  $('infoEmpty').textContent=nativeStats?format(nativeStats.unclaimed):format(empty);
   $('infoSub').textContent=m.subdivisions?.palette.length||0;
 }
 function refreshTargets(){const target=$('target'),keep=target.value;target.replaceChildren();
  for(const [val,title] of [['-999','Void / water'],['-1','Unclaimed land']]){const opt=new Option(title,val);target.add(opt);}
- for(const p of current.palette){const opt=new Option(`${p.id} · ${p.label}`,String(p.id));target.add(opt);}
+ for(const p of (nativePolitics?nativePalette:current.palette)){const opt=new Option(`${p.id} · ${p.label}`,String(p.id));target.add(opt);}
  if([...target.options].some(o=>o.value===keep))target.value=keep;
  const bulkFrom=$('bulkFrom'),bulkTo=$('bulkTo'),keepFrom=bulkFrom.value,keepTo=bulkTo.value;
  bulkFrom.replaceChildren();bulkTo.replaceChildren();
- for(const entry of current.palette){bulkFrom.add(new Option(`${entry.id} · ${entry.label}`,String(entry.id)));}
+ for(const entry of (nativePolitics?nativePalette:current.palette)){bulkFrom.add(new Option(`${entry.id} · ${entry.label}`,String(entry.id)));}
  for(const [val,title] of [['-999','Void / water'],['-1','Unclaimed land']])bulkTo.add(new Option(title,val));
- for(const entry of current.palette)bulkTo.add(new Option(`${entry.id} · ${entry.label}`,String(entry.id)));
+ for(const entry of (nativePolitics?nativePalette:current.palette))bulkTo.add(new Option(`${entry.id} · ${entry.label}`,String(entry.id)));
  if([...bulkFrom.options].some(o=>o.value===keepFrom))bulkFrom.value=keepFrom;
  if([...bulkTo.options].some(o=>o.value===keepTo))bulkTo.value=keepTo;
 }
 function refreshPalette(){const host=$('paletteEditor');host.replaceChildren();if(!current)return;
- for(const item of current.palette){
+ for(const item of (nativePolitics?nativePalette:current.palette)){
    const row=document.createElement('div');row.className='regionrow';
    const color=document.createElement('input');color.type='color';color.value=item.color;color.title='Region color';
    color.addEventListener('input',()=>{item.color=color.value;paint();window.mapFoxRefreshPaint?.();});
@@ -427,7 +429,7 @@ $('buildSubs').onclick=()=>{
  function updatePaintSelection(){
    const selected=$('target').value;
    const isWater=selected==='-999',unclaimed=selected==='-1';
-   const region=current?.palette.find(p=>String(p.id)===selected);
+   const region=(nativePolitics?nativePalette:current?.palette)?.find(p=>String(p.id)===selected);
    $('paintSwatch').style.background=isWater?'#305b72':unclaimed?'#dfd3ae':region?.color||'#ddd';
    $('paintLabel').textContent=isWater?'Water':unclaimed?'Unclaimed land':region?.label||'Pick a color';
  }
