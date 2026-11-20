@@ -50,13 +50,13 @@ The checked-in `index.html` is the **working 0.7.3 application** with modular so
 - Fext round-trip restoration against an original high-resolution coastline is **future** work.
 - This baseline is pre-MVP, even if selected functional tests pass.
 
-## Next engineering milestone — 0.7.4 (Stage A complete; Stages B–E planned)
+## Next engineering milestone — 0.7.4 (Stages A+B complete; Stages C–E planned)
 
 **[Full implementation plan: native-resolution political ownership](docs/IMPLEMENTATION_0.7.4.md)**
 
 The 0.7.3 editor retains and displays native imported source pixels, but political reroll and painting still derive from a smaller working grid. `regeneratePoliticalMap()` uses a planning grid capped at about 190,000 cells and then enlarges ownership; this explains the visibly stair-stepped regenerated nations. 0.7.4 will introduce a **native land/water mask and native political-owner tiles**, refine new borders at source resolution, and make reroll, editing, rendering, PNG export, and save/reopen use the **same authoritative native ownership**. Imported maps are the first end-to-end target; native-quality procedural geography remains the following milestone. Keep the current UI.
 
-The implementation is divided into five testable changes in the linked plan. **Stage A is committed**: native 256×256 tile data model, exact land mask, dense-index native owner tiles, document-v2 save/load codec and tests. **The 0.7.3 editor is unchanged.** Next is Stage B, native political regeneration; Stage C will connect native preview and export, and Stage D will switch painting and Undo. Do not describe 0.7.4 as shipped.
+The implementation is divided into five testable changes in the linked plan. **Stages A and B are committed**: native 256×256 tile data model, exact land mask, dense-index owner tiles, opt-in document-v2 codec, and deterministic `regenerateNativePolitics()` with native-scale refined boundaries, progress/cancel support and tests. **The 0.7.3 editor is still unchanged:** its Regenerate button does NOT yet invoke native politics. Next is Stage C: connect authoritative native ownership to preview and PNG export without losing old project compatibility. Stage D switches painting and Undo. Do not describe 0.7.4 as shipped.
 
 ## Roadmap: ordered milestones
 

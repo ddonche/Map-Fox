@@ -99,3 +99,9 @@ Do not confuse *appearance smoothing* with *actual geometry enhancement*. Also d
 ## Current baseline caveat
 
 The checked-in `index.html` is the 0.7.2 working prototype, not the proposed full architecture. It still limits import size, uses a coarse generator, and exports reduced grids from current map arrays. Implement this architecture incrementally and measure quality with large Everwind imports and generated maps.
+
+## Stage B implementation note (0.7.4 development)
+
+`src/native-politics.mjs` now exposes asynchronous `regenerateNativePolitics(sourceNativeMap, options)`, returning a **new `NativeMap`** with the exact same land/water bits and a native-resolution region ID at each land pixel. It uses the existing `growRegions()` planner to set macro ownership, then a seeded smooth field sampled at every native pixel to write refined boundaries. Smaller-than-planner islands retain native geography and get a deterministic nearest owner or unclaimed assignment. It also supports abort/progress options and nonconsecutive region IDs.
+
+**This engine is not wired into the 0.7.3 UI.** The current `src/app.mjs` Regenerate button still calls the coarse `regeneratePoliticalMap()`; preview and PNG export still project working-grid changes. Stage C must bring the native owner tiles into one authoritative rendering path. Do not mark 0.7.4 released before that and Stage D native editing work are tested.

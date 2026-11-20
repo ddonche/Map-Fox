@@ -1,6 +1,6 @@
 # Map Fox 0.7.4 — Native-Resolution Political Layer
 
-**Status:** Stage A (native document and tiles) implemented and tested on `main`; Stages B–E **not implemented yet**.  
+**Status:** Stages A and B implemented/tested on `main` (native tile model + standalone political regeneration); Stages C–E **not implemented yet**. The visible app remains 0.7.3.  
 **Prepared:** 2026-11-19  
 **Baseline:** Map Fox 0.7.3, `main` branch.  
 **Product direction:** Standalone image-first political map generator/editor. Fext remains an optional derived export.
@@ -17,6 +17,21 @@
 - **No new visible political regeneration or native painting in the app yet.** The current reroll still uses the working grid. The next engineering task is Stage B, native political regeneration.
 
 **Stage A deliberately does not yet provide** a full 9201×6600 native import pipeline with worker-based tiling, region ownership regeneration, compressed project container, or runtime map/UI integration. Those remain in Stages B–E.
+
+## Phase B implementation record — 2026-11-19
+
+**Done (independent regeneration engine; not wired into editor yet):**
+
+- Added `src/native-politics.mjs` with `regenerateNativePolitics(nativeMap, options)` and `sampleNativePlanningMask()`.
+- Reuses the existing deterministic `growRegions()` planner on a bounded, **area-sampled** land mask, then constructs a **distinct native-resolution owner tile for every source land pixel**.
+- Replaces 0.7.3's nearest-neighbor upscaling with a **continuous seeded influence field**, refined with multiscale smooth displacement and weighted neighbor voting in native coordinates. It writes actual owner values, not a blur or display-only interpolation.
+- Any coast, lake, strait or small island in the original `NativeMap` is copied bit-for-bit. Planner-omitted tiny islands are not erased: the native land retains a deterministic nearest-owner/unclaimed fallback, according to the planned political ownership.
+- Supports 0–100 regions, optional external stable region IDs, island policies, seeded determinism, explicit unclaimed land, progress callbacks and cancellation. The operation returns a new map and **never mutates the input**.
+- Added `tests/native-politics.test.mjs`. Tests include exact 1-pixel water features, mask identity, two seeds, same-seed byte equality, arbitrary IDs, output borders inside planner-cell rectangles, zero-region map, cancellation, malformed options, a sparse 9201×6600 map and a **dense synthetic 2048×1469 map**. CI run recorded **219 ms** for the dense synthetic sample; it is **not** an Everwind-world benchmark or a guaranteed runtime.
+- Registered these tests in `npm test` and included `src/native-politics.mjs` in the standalone build. GitHub CI was green.
+- **No UI claim:** `src/app.mjs` still calls the 0.7.3 `regeneratePoliticalMap()` for the Regenerate button, and `src/native-preview.mjs`/`src/native-export.mjs` still show working-grid edits. Phase C is needed before the native political result is visible or exportable.
+
+**Next:** Stage C — make the native political layer authoritative in preview and PNG export, and connect the regeneration path with a safe transition. Stage D will make painting, eyedropper, fill and Undo/Redo operate on the same native tiles.
 
 ## The bug this milestone addresses
 
@@ -180,7 +195,7 @@ For a no-change imported-map presentation, an exact original-pixels mode may rem
 ## Incremental implementation order / pull requests
 
 1. **PR A — Native document & tiles:** introduce testable native geometry and ownership APIs, project migration scaffold; existing UI behavior unchanged. Test exact water mask and project roundtrip.
-2. **PR B — Regeneration:** plan broadly, refine at native scale, assign island ownership, validate, then atomically apply. Show progress/cancel. Test region borders and exact geography before wiring into UI.
+2. **PR B — Regeneration engine (completed):** plan broadly, refine at native scale, assign tiny-island fallback ownership, validate and return a new immutable-by-contract native result. Progress/cancel callbacks are present. **UI progress button/apply wiring waits for Stage C**. Tests cover smooth high-res boundaries and exact geography.
 3. **PR C — Renderer + export:** unify viewport and native PNG compositing from authoritative tiles; eliminate old-image territorial color leakage. Pixel-perfect preview/export consistency tests.
 4. **PR D — Editing:** native eyedropper, brush, fill, Undo/Redo and efficient dirty-tile rendering. Stress test at zoom and narrow straits.
 5. **PR E — Packaging / migration / performance:** .mapfox save/reopen, legacy loading, standalone worker packaging, benchmarks, documentation, final release checklist.
