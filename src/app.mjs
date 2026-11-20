@@ -292,15 +292,17 @@ function refreshPalette(){const host=$('paletteEditor');host.replaceChildren();i
 }
 function updateAll(){paint();refreshInfo();refreshTargets();refreshPalette();window.mapFoxRefreshPaint?.();}
 function dropSubs(){if(current){current.subdivisions=null;refreshInfo();paint();}}
-$('eraseSubs').onclick=()=>{dropSubs();message('Subdivision layer removed; parent regions are unchanged.');};
+$('eraseSubs').onclick=()=>{if(nativeEditingPending())return;dropSubs();message('Subdivision layer removed; parent regions are unchanged.');};
 
 $('fixStrays').onclick=()=>{
+ if(nativeEditingPending())return;
  if(!current||current.source?.type!=='image'){message('Import an image before repairing it.',true);return;}
  const result=fixStrayLandCells(current,64);
  if(result.repaired){clearPaintHistory();dropSubs();updateAll();}
  message(`Fixed ${format(result.repaired)} stray cells in ${result.patches} small patches. ${result.skipped} disconnected/large unclaimed patches preserved.`);
 };
 $('restoreIslands').onclick=()=>{
+ if(nativeEditingPending())return;
  if(!current||current.source?.type!=='image'||!raw){message('Import an image before restoring islands.',true);return;}
  const result=restoreTinyIslands(current,raw,Number($('waterTolerance').value)||34);
  if(result.restored){clearPaintHistory();dropSubs();updateAll();}
@@ -308,7 +310,7 @@ $('restoreIslands').onclick=()=>{
 };
 
 $('bulkApply').onclick=()=>{
- if(!current)return;const from=Number($('bulkFrom').value),to=Number($('bulkTo').value),layer=current.layers.regions;
+ if(!current||nativeEditingPending())return;const from=Number($('bulkFrom').value),to=Number($('bulkTo').value),layer=current.layers.regions;
  if(from===to){message('Choose two different region assignments.');return;}
  let changed=0;for(let i=0;i<layer.length;i++)if(layer[i]===from){
    if(to===-999){current.valid[i]=0;layer[i]=-1;}else{current.valid[i]=1;layer[i]=to;}changed++;
@@ -316,7 +318,7 @@ $('bulkApply').onclick=()=>{
  clearPaintHistory();dropSubs();paint();refreshInfo();message(`Reassigned ${format(changed)} cells from region ${from} to ${to===-999?'void':to===-1?'unclaimed':`region ${to}`}.`);
 };
 $('addRegion').onclick=()=>{
- if(!current)return;
+ if(!current||nativeEditingPending())return;
  let id=current.palette.reduce((a,b)=>Math.max(a,b.id),-1)+1;
  const hue=id*137.508;const base=`hsl(${hue} 45% 63%)`;
  const c=document.createElement('canvas').getContext('2d');c.fillStyle=base;const shade=c.fillStyle;
@@ -324,7 +326,7 @@ $('addRegion').onclick=()=>{
  message(`Region ${id} added. Use the correction tool to assign cells to it.`);
 };
 $('buildSubs').onclick=()=>{
- if(!current)return;const start=performance.now(),counts={};
+ if(!current||nativeEditingPending())return;const start=performance.now(),counts={};
  for(const item of current.palette)if(item.subdivisionCount!==undefined)counts[item.id]=item.subdivisionCount;
  try{current.subdivisions=subdivideMap(current,{defaultCount:Number($('defaultSubs').value),counts,seed:$('subSeed').value});
   $('view').value='subdivisions';paint();refreshInfo();message(`Generated ${current.subdivisions.palette.length} subdivisions in ${Math.round(performance.now()-start)} ms. Parent borders are unchanged.`);
@@ -340,7 +342,7 @@ $('buildSubs').onclick=()=>{
            Math.max(0,Math.min(h-1,Math.floor((event.clientY-r.top)/r.height*h)))];
  }
  function correct(event,previous=null){
-   if(!current)return;
+   if(!current||nativeEditingPending())return;
    const tool=$('tool').value;
    if(tool!=='brush'&&tool!=='fill')return;
    const [x,y]=canvasPosition(event,$('map')),id=Number($('target').value);
@@ -463,6 +465,7 @@ $('buildSubs').onclick=()=>{
    if(event.button!==0)return;
    if(mode==='pick'||event.altKey){pickPaint(event);event.preventDefault();return;}
    if(mode!=='brush'&&mode!=='fill')return;
+   if(nativeEditingPending()){event.preventDefault();return;}
    beginPaintStep();penDown=true;paintPointer=event.pointerId;lastPaint=-1;lastPoint=null;
    mapCanvas.setPointerCapture(event.pointerId);
    correct(event);lastPoint=canvasPosition(event,mapCanvas);
