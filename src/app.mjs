@@ -2,14 +2,29 @@ import { spawnMap, serializeMap, deserializeMap, validateMapGrid, regeneratePoli
 import { importPixels, sampleColor, floodReassign, brushAssign, fixStrayLandCells, restoreTinyIslands } from './importer.mjs';
 import { subdivideMap } from './subdivisions.mjs';
 import { goblinSmoothFrame } from './renderer.mjs';
-import {generatedMaster,importedMaster,saveProjectDocument,loadProjectDocument} from './master-map.mjs';
-import {renderNativeImportedPNG,downloadCanvasPNG} from './native-export.mjs';
+import {generatedMaster,importedMaster,saveProjectDocument,loadNativeProjectDocument,saveNativeProjectDocument} from './master-map.mjs';
+import {regenerateNativePolitics} from './native-politics.mjs';
+import {loadNativeGeography} from './native-source.mjs';
+import {renderNativeImportedPNG,renderNativePoliticalPNG,downloadCanvasPNG} from './native-export.mjs';
 import {createNativePreview} from './native-preview.mjs';
 // BEGIN APP UI
 const $=id=>document.getElementById(id);
 let current=null,originalPolitical=null,raw=null,rawWidth=0,rawHeight=0,bg=null,sourceMode='generate',penDown=false,lastPaint=-1;
 let master=null,pendingNativeSource=null;
 let nativePreview=null;
+// Native politics is authoritative after a native reroll or v2 project load.
+// The legacy working grid is retained for other views and Fext compatibility
+// until native painting and reduced-grid derivation are implemented.
+let nativeGeography=null,nativePolitics=null,nativePalette=null,nativeSeed=null,nativeStats=null,nativeJob=null;
+function resetNativePolitics(){
+  nativeJob?.abort();nativeJob=null;
+  nativeGeography=null;nativePolitics=null;nativePalette=null;nativeSeed=null;nativeStats=null;
+}
+function nativeEditingPending(){
+  if(!nativePolitics)return false;
+  message('This is a native-resolution political variation. Brush/fill and other editing tools need the next native-editing phase. Use Restore original regions to return to the editable imported map.',true);
+  return true;
+}
 const rgb=hex=>[1,3,5].map(i=>parseInt(hex.slice(i,i+2),16));
 const pixelRgb=(data,k)=>[data[k],data[k+1],data[k+2]];
 const format=(x)=>Number(x).toLocaleString();
@@ -73,8 +88,17 @@ $('jsonFile').addEventListener('change',async event=>{
   const file=event.target.files?.[0];if(!file)return;
   try{
     const parsed=JSON.parse(await file.text());
-    const loaded=loadProjectDocument(parsed),next=loaded.map;const summary=validateMapGrid(next);
-    current=next;master=loaded.master;pendingNativeSource=null;clearPaintHistory();raw=null;rawWidth=0;rawHeight=0;bg=null;resetOriginal();prepare('json');updateAll();window.mapFoxFit?.();
+    const loaded=loadNativeProjectDocument(parsed),next=loaded.map;const summary=validateMapGrid(next);
+    resetNativePolitics();
+    current=next;master=loaded.master;pendingNativeSource=null;
+    nativeGeography=loaded.native??null;
+    nativePolitics=loaded.native??null;
+    nativePalette=loaded.politics?.palette??(loaded.native?.regionIds.map(id=>next.palette.find(p=>p.id===id)||{id,color:'#bba892',label:'Region '+id})??null);
+    nativeSeed=loaded.politics?.seed??null;
+    clearPaintHistory();raw=null;rawWidth=0;rawHeight=0;bg=null;
+    resetOriginal();
+    if(nativePolitics){originalPolitical=copyMap(current);$('restorePolitical').disabled=false;$('exportOriginal').disabled=false;}
+    prepare('json');updateAll();window.mapFoxFit?.();
     message(`Loaded ${file.name}: ${summary.width} × ${summary.height}, ${format(summary.land)} usable cells, ${summary.regions} occupied regions. Continue editing or exporting.`);
   }catch(e){console.error(e);message(`Could not open JSON: ${e.message}`,true);}
   finally{event.target.value='';}
@@ -82,7 +106,7 @@ $('jsonFile').addEventListener('change',async event=>{
 function makeGenerated(){
   try{
     const start=performance.now();let land=$('land').value.trim();
-    clearPaintHistory();current=spawnMap({seed:$('seed').value,style:$('style').value,width:Number($('width').value),height:Number($('height').value),regionCount:Number($('regions').value),independentIslandRegions:$('islandRegions').value.trim()?Number($('islandRegions').value):'auto',unclaimedIslandRate:Number($('unclaimedChance').value)/100,landRatio:land?Number(land)/100:null});
+    resetNativePolitics();clearPaintHistory();current=spawnMap({seed:$('seed').value,style:$('style').value,width:Number($('width').value),height:Number($('height').value),regionCount:Number($('regions').value),independentIslandRegions:$('islandRegions').value.trim()?Number($('islandRegions').value):'auto',unclaimedIslandRate:Number($('unclaimedChance').value)/100,landRatio:land?Number(land)/100:null});
     current.source={type:'generated'};current.subdivisions=null;master=generatedMaster(current);pendingNativeSource=null;resetOriginal();
     updateAll();window.mapFoxFit?.();message(`Generated ${current.width} × ${current.height} in ${Math.round(performance.now()-start)} ms.`);
   }catch(e){console.error(e);message(`Generation error: ${e.message}`,true);}
@@ -97,31 +121,88 @@ function resetOriginal(){
 function newPoliticalSeed(){
   $('regenSeed').value=String(Math.floor(Math.random()*4294967295));
 }
-function doRegeneration(){
+async function doRegeneration(){
   if(!current){message('Generate or import a map first.',true);return;}
-  try{
-    // Always regenerate against the same original, not the previous variant.
-    const base=originalPolitical||current;
-    const options={regionCount:Number($('regenCount').value),seed:$('regenSeed').value,
-      independentIslandRegions:$('regenIslands').value.trim()?Number($('regenIslands').value):'auto',
-      unclaimedIslandRate:Number($('regenUnclaimed').value)/100};
-    if(!Number.isInteger(options.regionCount)||options.regionCount<0||options.regionCount>100)throw new Error('Choose 0–100 starting regions');
+  if(nativeJob){message('A political regeneration is already running.',true);return;}
+  const options={
+    regionCount:Number($('regenCount').value),seed:$('regenSeed').value,
+    independentIslandRegions:$('regenIslands').value.trim()?Number($('regenIslands').value):'auto',
+    unclaimedIslandRate:Number($('regenUnclaimed').value)/100
+  };
+  if(!Number.isInteger(options.regionCount)||options.regionCount<0||options.regionCount>100){
+    message('Choose 0–100 starting regions.',true);return;
+  }
+  if(master?.kind==='imported'){
+    const controller=new AbortController(),sourceMaster=master,sourceCurrent=current;
+    nativeJob=controller;
+    $('regenerate').disabled=true;$('rerollPolitical').disabled=true;
+    $('cancelNativeRegen').hidden=false;
     const started=performance.now();
+    try{
+      if(!nativeGeography){
+        message('Reading original-resolution geography; every water pixel will remain unchanged…');
+        nativeGeography=await loadNativeGeography(master,{
+          signal:controller.signal,waterTolerance:0,
+          onProgress:p=>message('Reading native coastline: '+p.percent+'%')
+        });
+      }
+      if(controller.signal.aborted||master!==sourceMaster||current!==sourceCurrent)
+        throw new Error('The source map changed while regenerating');
+      const result=await regenerateNativePolitics(nativeGeography,{
+        ...options,maxPlanningCells:90000,roughness:1.0,
+        signal:controller.signal,onProgress:p=>message('Native political '+p.phase+': '+p.percent+'%')
+      });
+      if(controller.signal.aborted||master!==sourceMaster||current!==sourceCurrent)
+        throw new Error('The source map changed while regenerating');
+      // Commit only after ALL tiles and exact-geography checks succeeded.
+      if(!originalPolitical)originalPolitical=copyMap(current);
+      nativePolitics=result.map;nativePalette=result.palette;
+      nativeSeed=options.seed;nativeStats=result.stats;
+      clearPaintHistory();$('view').value='regions';
+      $('restorePolitical').disabled=false;$('exportOriginal').disabled=false;
+      updateAll();
+      message('Native political variation: '+result.stats.actualRegions+' regions across '
+        +format(result.stats.nativeLandCells)+' original-resolution land pixels. '
+        +result.stats.planningWidth+' × '+result.stats.planningHeight
+        +' cells used ONLY for planning; final ownership is '
+        +master.nativeWidth+' × '+master.nativeHeight+'. '
+        +Math.round(performance.now()-started)+' ms. Native painting is coming in Phase D.');
+    }catch(e){
+      console.error(e);message('Native regeneration not applied: '+e.message,true);
+    }finally{
+      if(nativeJob===controller)nativeJob=null;
+      $('regenerate').disabled=false;$('rerollPolitical').disabled=false;
+      $('cancelNativeRegen').hidden=true;
+    }
+    return;
+  }
+  // Current generated maps still use the existing generator. Native-quality
+  // procedural geography is a separate, later roadmap milestone.
+  try{
+    const base=originalPolitical||current,started=performance.now();
     const next=regeneratePoliticalMap(base,options);
     if(!originalPolitical)originalPolitical=copyMap(base);
     current=next;clearPaintHistory();
     $('view').value='regions';
-    $('restorePolitical').disabled=false;
-    $('exportOriginal').disabled=false;
+    $('restorePolitical').disabled=false;$('exportOriginal').disabled=false;
     updateAll();
     const actual=new Set(current.layers.regions.filter(v=>v>=0)).size;
-    message(`New political map: ${actual} regions; ${format(next.regenerationStats.unclaimed)} unclaimed land cells. Fixed ${next.width} × ${next.height} geography preserved. ${Math.round(performance.now()-started)} ms. You can restore or export the original.`);
-  }catch(e){console.error(e);message(`Could not regenerate: ${e.message}`,true);}
+    message('New generated-map politics: '+actual+' regions at working resolution. '
+      +Math.round(performance.now()-started)+' ms. High-resolution generated geography remains planned.');
+  }catch(e){console.error(e);message('Could not regenerate: '+e.message,true);}
 }
+const cancelNativeRegen=document.createElement('button');
+cancelNativeRegen.type='button';cancelNativeRegen.id='cancelNativeRegen';
+cancelNativeRegen.textContent='Cancel';cancelNativeRegen.className='ghost';
+cancelNativeRegen.hidden=true;
+cancelNativeRegen.onclick=()=>nativeJob?.abort();
+$('politicalActions').append(cancelNativeRegen);
 $('regenerate').onclick=doRegeneration;
 $('rerollPolitical').onclick=()=>{newPoliticalSeed();doRegeneration();};
 $('restorePolitical').onclick=()=>{
   if(!originalPolitical)return;
+  nativeJob?.abort();
+  nativePolitics=null;nativePalette=null;nativeSeed=null;nativeStats=null;
   current=copyMap(originalPolitical);clearPaintHistory();$('view').value='regions';updateAll();
   message('Original political regions restored. Fixed geography unchanged. Your regenerated version can be recreated using its seed.');
 };
@@ -282,7 +363,7 @@ $('buildSubs').onclick=()=>{
    }
  }
  const mapCanvas=$('map'), mapFrame=$('mapFrame');
- nativePreview=createNativePreview({mapCanvas,mapFrame,viewport:$('nativeViewport'),getMap:()=>current,getMaster:()=>master,getView:()=>$('view').value});
+ nativePreview=createNativePreview({mapCanvas,mapFrame,viewport:$('nativeViewport'),getMap:()=>current,getMaster:()=>master,getView:()=>$('view').value,getNativePolitics:()=>nativePolitics,getNativePalette:()=>nativePalette});
  let mapZoom=1,mapOffsetX=0,mapOffsetY=0,spaceHeld=false;
  let panDrag=null,paintPointer=null,lastPoint=null;
  function boundMapOffset(){
@@ -497,7 +578,7 @@ function runImport(){
  try{
    const start=performance.now();
    clearPaintHistory();current=importPixels({rgba:raw,width:rawWidth,height:rawHeight,background:bg,waterTolerance:Number($('waterTolerance').value),regionLimit:Number($('colorLimit').value),cleanup:Number($('cleanup').value),mode:$('mode').value});
-   current.subdivisions=null;master=pendingNativeSource?importedMaster(current,{...pendingNativeSource,background:bg,importMode:current.source.importMode}):generatedMaster(current);resetOriginal();updateAll();window.mapFoxFit?.();
+   resetNativePolitics();current.subdivisions=null;master=pendingNativeSource?importedMaster(current,{...pendingNativeSource,background:bg,importMode:current.source.importMode}):generatedMaster(current);resetOriginal();updateAll();window.mapFoxFit?.();
    message(`Imported ${current.width} × ${current.height}; ${current.palette.length} detected region colors (${current.source.importMode} mode) in ${Math.round(performance.now()-start)} ms. Review boundaries; use Fill, Brush, or the repair buttons for any remaining mistakes.`);
  }catch(e){console.error(e);message(`Import error: ${e.message}`,true);}
 }
