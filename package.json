@@ -5,7 +5,7 @@
   "type": "module",
   "description": "Map Fox political map generator and editor",
   "scripts": {
-    "test": "node tests/core.test.mjs && node tests/master-map.test.mjs && node tests/native-map.test.mjs && node tests/native-politics.test.mjs",
+    "test": "node tests/core.test.mjs && node tests/master-map.test.mjs && node tests/native-map.test.mjs && node tests/native-politics.test.mjs && node tests/native-composite.test.mjs",
     "build": "python scripts/build-standalone.py"
   }
 }
