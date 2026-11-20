@@ -2,6 +2,13 @@
 
 All notable changes to Map Fox will be recorded here. Version numbering is continuous with the former Map Spawner V7.2; **0.7.3 is the current development series**, not 0.1.
 
+## [0.7.4 — in development] — 2026-11-19 (Stage A only)
+
+- Added isolated, testable native tile model in `src/native-map.mjs`: bit-packed exact geography, independent owner tiles, stable arbitrary IDs, sparse 256-pixel tiles, native RGBA classification and geography-preserving political replacement.
+- Added an **opt-in** document version-2 codec in `src/master-map.mjs`, with native serialization, validation and explicit v1/v6 migration required status. The released 0.7.3 application still saves and displays legacy v1 data.
+- Added new native tile tests, including tiny waterways, tile boundaries, 9201×6600 sparse dimensions, corrupted tile data, and version-2 project reopen. Updated standalone builder to include new modules.
+- **Not shipped in the editor:** native-region regeneration, native painting, native preview/export integration, workers and packed project files; these remain stages B–E. No visible version bump was made.
+
 ## [0.7.3] — 2026-11-18 (image-first foundation)
 
 - **Native-quality viewport correction:** Imported political maps now display the full-resolution original image when viewing political regions, even when the editable working grid is smaller. Zoom/pan samples native-source pixels rather than magnifying the working cells; painted territory/geometry changes are overlaid on the original, and Undo remains functional. Other grid display layers retain their existing rendering.

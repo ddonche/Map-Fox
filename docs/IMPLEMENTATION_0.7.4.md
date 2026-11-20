@@ -1,9 +1,22 @@
 # Map Fox 0.7.4 — Native-Resolution Political Layer
 
-**Status:** Approved implementation plan; **not implemented yet**.  
+**Status:** Stage A (native document and tiles) implemented and tested on `main`; Stages B–E **not implemented yet**.  
 **Prepared:** 2026-11-19  
 **Baseline:** Map Fox 0.7.3, `main` branch.  
 **Product direction:** Standalone image-first political map generator/editor. Fext remains an optional derived export.
+
+## Stage A implementation record — 2026-11-19
+
+**Done (foundation only):**
+
+- `src/native-map.mjs` adds `NativeMap` with 256×256 bit-packed land/water mask tiles, independent 16-bit political owner tiles, arbitrary stable external region IDs via a dense-index lookup table, explicit geography writes, and water-safe political writes.
+- Supports exact RGBA flat-color classification into native masks with explicit color-to-region mapping (unknown colors remain unclaimed), plus creating a native **representation of existing coarse generated maps** without pretending that the generated geography is newly high resolution.
+- Supports clone, exact geography equality, geography-preserving political replacement, and serialized tile roundtrips (base64 bitmask, RLE or raw 16-bit ownership; missing tiles represent water).
+- `src/master-map.mjs` now has opt-in `saveNativeProjectDocument`/`loadNativeProjectDocument` for version-2 native project data. Existing `loadProjectDocument` remains v1 and the shipping 0.7.3 app still saves v1. The new loader distinguishes v6/v1 projects as `requiresNativeMigration`; it does **not** synthesize false native data.
+- `npm test` executes `tests/native-map.test.mjs` (water channels, lakes, tile boundaries, stable IDs, corrupt tiles, sparse 9201×6600 dimensions, and native project roundtrip). Standalone builder includes native-map source without changing the UI.
+- **No new visible political regeneration or native painting in the app yet.** The current reroll still uses the working grid. The next engineering task is Stage B, native political regeneration.
+
+**Stage A deliberately does not yet provide** a full 9201×6600 native import pipeline with worker-based tiling, region ownership regeneration, compressed project container, or runtime map/UI integration. Those remain in Stages B–E.
 
 ## The bug this milestone addresses
 
