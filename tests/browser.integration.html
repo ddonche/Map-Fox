@@ -44,9 +44,10 @@
    check(!errors.length,'Unexpected browser errors: '+errors.join(','));
    const regions=Number(d.getElementById('infoRegions').textContent);
    check(regions>1,'Regenerated only '+regions+' regions');
+   const pngStart=blobs.length;
    d.getElementById('png').click();
-   await until(()=>blobs.some(b=>b.type==='image/png'&&b!==source),'native PNG export');
-   const exported=blobs.filter(b=>b.type==='image/png'&&b!==source).at(-1);
+   await until(()=>blobs.slice(pngStart).some(b=>b.type==='image/png'),'native PNG export');
+   const exported=blobs.slice(pngStart).filter(b=>b.type==='image/png').at(-1);
    const bmp=await createImageBitmap(exported);
    check(bmp.width===512&&bmp.height===320,'PNG uses working-grid dimensions');
    const output=document.createElement('canvas');output.width=512;output.height=320;
