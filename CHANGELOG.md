@@ -2,6 +2,13 @@
 
 All notable changes to Map Fox will be recorded here. Version numbering is continuous with the former Map Spawner V7.2; **0.7.3 is the current development series**, not 0.1.
 
+## Geography-detail regression fix (post-Phase C)
+
+- **Preserved native source anti-aliasing during political recolors.** The previous Phase C compositor kept only exact water pixels, while replacing near-black shoreline and river edge pixels with flat region colors. This thinned or interrupted waterways on high-zoom previews and exported PNGs.
+- The shared native viewport/PNG compositor now reconstructs each near-water pixel's original land/water coverage using the imported source palette, then applies that same coverage to the **new** territory color. Old political interiors do not remain visible. It also detects soft, very thin dark waterways with no pure-black core when the surrounding source pixels support a line feature.
+- Added unit and headless-browser regression tests for 1-pixel water channels, anti-aliased river fringes, solid dark territories, preview/PNG parity and save/reopen. Original black water pixels remain unchanged. The imported source image remains embedded unchanged.
+- This is a fidelity repair, **not** the release of native painting or procedural high-resolution geography. Native project UI version remains 0.7.3 pending the rest of 0.7.4.
+
 ## [0.7.4 — in development] — 2026-11-19 (Stages A–C)
 
 - Added isolated, testable native tile model in `src/native-map.mjs`: bit-packed exact geography, independent owner tiles, stable arbitrary IDs, sparse 256-pixel tiles, native RGBA classification and geography-preserving political replacement.

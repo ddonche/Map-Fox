@@ -49,6 +49,12 @@
 
 **Validation:** Node tests and standalone build passed, and browser integration passed using a 512×320 synthetic flat-color map with a 1-pixel black channel. This is an actual working UI integration, not yet a user-reviewed Everwind visual result. Native 9201×6600 performance and real Everwind appearance still need inspection.
 
+## Phase C follow-up — preserving source waterway detail
+
+The first native renderer displayed original source pixels where the land mask said **water** but recolored every land-mask pixel completely. This erased partially anti-aliased black river/shoreline pixels: because they were not **exactly** the sampled water RGB, they were classified as land and covered by the new political color. At zoom this appeared as interrupted/thinned rivers and a sharp loss of geographic detail.
+
+**Correction completed:** `src/native-composite.mjs` now derives old-land/water coverage from source pixel colors and the preserved imported palette near exact-water pixels, plus a conservative dark-line fallback for antialiasing without pure-black centers. It reapplies the same water coverage to new political colors and is reused by `src/native-preview.mjs` and `src/native-export.mjs`. This preserves raster water edges without leaking the original political fill. Unit and headless browser checks were added. The source image itself was never changed. Future native geography editing needs a separate explicit semantic mask-edit workflow; this paint-layer improvement does not make the old working grid authoritative again.
+
 ## The bug this milestone addresses
 
 On the imported Everwind map, the native source image is sharp but clicking **Regenerate political boundaries** produces conspicuous blocky shapes, breaks visual continuity, and can expose mixed old/new political coloring.
