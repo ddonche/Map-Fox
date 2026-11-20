@@ -213,8 +213,8 @@ $('exportOriginal').onclick=()=>{
 function paint(){
   if($('simPreviewBox'))$('simPreviewBox').classList.add('hidden');
   if($('simResult'))$('simResult').textContent='';
-  if(!current)return;const m=current,canvas=$('map'),view=$('view').value;
-  if(nativePolitics&&view!=='regions'){$('view').value='regions';message('Only the political view is available while native ownership is active.');}
+  if(!current)return;const m=current,canvas=$('map');let view=$('view').value;
+  if(nativePolitics&&view!=='regions'){$('view').value='regions';view='regions';message('Only the political view is available while native ownership is active.');}
   // Display imported original-resolution image in the viewport, not the working grid.
   nativePreview?.markDataChanged();
   if(nativePreview?.sync(view))return;
@@ -440,7 +440,14 @@ $('buildSubs').onclick=()=>{
  function pickPaint(event){
    if(!current)return;
    const [x,y]=canvasPosition(event,mapCanvas),i=y*current.width+x;
-   const value=current.valid[i]?String(current.layers.regions[i]):'-999';
+   let value;
+   if(nativePolitics){
+     const r=mapCanvas.getBoundingClientRect();
+     const nx=Math.max(0,Math.min(nativePolitics.width-1,Math.floor((event.clientX-r.left)/r.width*nativePolitics.width)));
+     const ny=Math.max(0,Math.min(nativePolitics.height-1,Math.floor((event.clientY-r.top)/r.height*nativePolitics.height)));
+     const id=nativePolitics.getRegion(nx,ny);
+     value=id===null?'-999':String(id);
+   }else value=current.valid[i]?String(current.layers.regions[i]):'-999';
    if(![...$('target').options].some(option=>option.value===value))return;
    $('target').value=value;updatePaintSelection();
    $('tool').value='brush';syncToolButtons();
@@ -450,6 +457,14 @@ $('buildSubs').onclick=()=>{
  function updateHover(event){
    if(!current)return;
    const [x,y]=canvasPosition(event,mapCanvas),i=y*current.width+x;
+   if(nativePolitics){
+     const r=mapCanvas.getBoundingClientRect();
+     const nx=Math.max(0,Math.min(nativePolitics.width-1,Math.floor((event.clientX-r.left)/r.width*nativePolitics.width)));
+     const ny=Math.max(0,Math.min(nativePolitics.height-1,Math.floor((event.clientY-r.top)/r.height*nativePolitics.height)));
+     const id=nativePolitics.getRegion(nx,ny);
+     $('hoverInfo').textContent='Native pixel ('+nx+', '+ny+') · '+(id===null?'water':id===-1?'unclaimed':nativePalette.find(p=>p.id===id)?.label||('region '+id));
+     return;
+   }
    const id=current.valid[i]?current.layers.regions[i]:'water';
    $('hoverInfo').textContent=`Cell (${x}, ${y}) · ${id===-1?'unclaimed land':id==='water'?'water':current.palette.find(p=>p.id===id)?.label||`region ${id}`}`;
  }
@@ -592,7 +607,13 @@ function save(blob,name){const url=URL.createObjectURL(blob),a=document.createEl
 $('png').onclick=async()=>{
  if(!current)return;const type=$('view').value,button=$('png');button.disabled=true;
  try{
-   if(master?.kind==='imported'){
+   if(nativePolitics){
+     message('Rendering '+nativePolitics.width+' × '+nativePolitics.height+' native political PNG…');
+     const image=await renderNativePoliticalPNG(master,nativePolitics,nativePalette);
+     const blob=await downloadCanvasPNG(image);
+     save(blob,'map-fox-native-variation-'+type+'.png');
+     message('Native-resolution political PNG exported. Every source water pixel preserved.');
+   }else if(master?.kind==='imported'){
      message(`Rendering ${master.nativeWidth} × ${master.nativeHeight} PNG from original master image…`);
      const image=await renderNativeImportedPNG(current,master);
      const blob=await downloadCanvasPNG(image);save(blob,`map-fox-native-${type}.png`);
@@ -603,9 +624,23 @@ $('png').onclick=async()=>{
    }
  }catch(e){console.error(e);message(`PNG export error: ${e.message}`,true);}finally{button.disabled=false;}
 };
-$('json').onclick=()=>{if(!current)return;try{validateMapGrid(current);save(new Blob([JSON.stringify(saveProjectDocument(current,master))],{type:'application/json'}),'map-fox-project.json');message('Map Fox project saved, including the original native image for imports. Reopen using Open project.');}catch(e){message(`Could not save project: ${e.message}`,true);}};
+$('json').onclick=()=>{
+  if(!current)return;
+  try{
+    validateMapGrid(current);
+    const doc=nativePolitics?
+      saveNativeProjectDocument(current,master,nativePolitics,{palette:nativePalette,seed:nativeSeed}):
+      saveProjectDocument(current,master);
+    save(new Blob([JSON.stringify(doc)],{type:'application/json'}),'map-fox-project.json');
+    message(nativePolitics?'Native political variation saved in version-2 project JSON. Reopen to preserve all native owner tiles.':'Project saved with original native source image.');
+  }catch(e){message('Could not save project: '+e.message,true);}
+};
 $('verify').onclick=()=>{
   try{
+    if(nativePolitics){
+      message('Native political ownership: '+nativePolitics.regionIds.length+' regions, '+nativePolitics.width+' × '+nativePolitics.height+' pixels. Political regeneration preserved the native coastline.');
+      return;
+    }
     const status=validateMapGrid(current);
     const junctions=countFourWayJunctions(current.layers.regions,current.valid,current.width,current.height);
     message(`Grid valid: ${format(status.land)} land cells · ${format(status.regions)} occupied regions · ${format(status.unclaimed)} unclaimed cells · ${junctions} four-way region junctions. ${junctions?'Check manual edits if these junctions are unwanted.':''}`);
@@ -613,6 +648,7 @@ $('verify').onclick=()=>{
 };
 function buildSimulationExport(){
   if(!current)throw new Error('Generate or import a map first');
+  if(nativePolitics)throw new Error('Fext export currently uses the legacy working grid, not this native political variation. Restore original politics first; native Fext reduction is planned.');
   return simulationSizeMap(current, Number($('simSize').value));
 }
 function describeSimulation(result){
