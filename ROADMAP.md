@@ -20,11 +20,11 @@ Map Fox is a **standalone, browser-based political map generator and editor**—
 6. **Editing feels like painting.** Mouse wheel zoom at cursor; drag with Move or Space/middle mouse to pan; eyedropper picks a real territory/region ID; brush with [ and ] resize; Ctrl+Z undo / Ctrl+Shift+Z redo; paint/fill must modify editable data, not just an overlay.
 7. **Use the actual Goblin renderer for smooth presentation.** Port of `crates/goblin-vm/src/image.rs` `draw_onto`: Gaussian-weighted 5×5 class voting (sigma .7), margin-based edge antialiasing and optional 1.5px border. Rendering does **not** silently change map ownership or coastline cells. Different from algorithms that improve the underlying geography.
 8. **Black-water flat-color import must be faithful.** The Everwind test map uses black for water, **not black political borders**. Do not infer black lines should be filled as land.
-9. **Version continuity.** Current development version remains **0.7.2**, descended from original Map Spawner V7.2. Do **not** reset to v0.1. JSON schema `version: 6` is a separate backwards-compatibility detail.
+9. **Version continuity.** Current development version remains **0.7.3**, descended from original Map Spawner V7.2. Do **not** reset to v0.1. JSON schema `version: 6` is a separate backwards-compatibility detail.
 10. **MIT license.** Respect the repository's existing LICENSE file.
 11. **Future site navigation.** Reserve Home, Docs, Forum and Downloads links for when those pages exist; don't invent live URLs.
 
-## Current baseline: 0.7.2 (what exists)
+## Current baseline: 0.7.3 (what exists)
 
 The checked-in `index.html` is the **working 0.7.3 application** with modular source under `src/`. The original 0.7.2 baseline is superseded. It contains:
 - Standalone browser app, four-action workspace, light ivory/fox-orange color scheme, user-supplied fox logo;
@@ -49,6 +49,14 @@ The checked-in `index.html` is the **working 0.7.3 application** with modular so
 - Edit history currently covers painting/fill but not every command.
 - Fext round-trip restoration against an original high-resolution coastline is **future** work.
 - This baseline is pre-MVP, even if selected functional tests pass.
+
+## Next engineering milestone — 0.7.4 (planned, not implemented)
+
+**[Full implementation plan: native-resolution political ownership](docs/IMPLEMENTATION_0.7.4.md)**
+
+The 0.7.3 editor retains and displays native imported source pixels, but political reroll and painting still derive from a smaller working grid. `regeneratePoliticalMap()` uses a planning grid capped at about 190,000 cells and then enlarges ownership; this explains the visibly stair-stepped regenerated nations. 0.7.4 will introduce a **native land/water mask and native political-owner tiles**, refine new borders at source resolution, and make reroll, editing, rendering, PNG export, and save/reopen use the **same authoritative native ownership**. Imported maps are the first end-to-end target; native-quality procedural geography remains the following milestone. Keep the current UI.
+
+The implementation is divided into five testable changes in the linked plan. **Documentation is committed; 0.7.4 code has not been implemented yet.**
 
 ## Roadmap: ordered milestones
 
@@ -118,7 +126,7 @@ The checked-in `index.html` is the **working 0.7.3 application** with modular so
 
 ## Implementation guidance for future sessions
 
-1. Read `ROADMAP.md`, `docs/ARCHITECTURE.md` and `CHANGELOG.md` first.
+1. Read `ROADMAP.md`, **`docs/IMPLEMENTATION_0.7.4.md`**, `docs/ARCHITECTURE.md` and `CHANGELOG.md` first.
 2. Inspect **actual** repository source; do not infer features from a previous conversational description.
 3. Make a small, testable change without discarding existing behavior. Keep the user-facing left-rail layout and actual brand asset.
 4. For renderer work, verify against Goblin's `crates/goblin-vm/src/image.rs` and `sims/capstone/picture.gbln` before proposing a substitute.
